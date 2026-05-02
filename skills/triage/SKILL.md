@@ -1,6 +1,6 @@
 ---
 name: triage
-description: Triage open issues, log patterns, and alert monitors using the monoscope CLI. Use when asked to do an on-call sweep, review alerts, acknowledge issues, silence noisy monitors, bulk-dismiss log patterns, or clear the alert queue. Requires MONO_API_KEY and MONO_PROJECT environment variables.
+description: Triage open issues, log patterns, and alert monitors using the monoscope CLI. Use when asked to do an on-call sweep, review alerts, acknowledge issues, silence noisy monitors, bulk-dismiss log patterns, or clear the alert queue. Requires MONOSCOPE_API_KEY and MONOSCOPE_PROJECT environment variables.
 allowed-tools: Bash
 ---
 
@@ -11,19 +11,52 @@ Use the `monoscope` CLI to sweep open issues, noisy log patterns, and misfiring 
 ## Prerequisites
 
 ```bash
-export MONO_API_KEY=<your-api-key>
-export MONO_PROJECT=<your-project-uuid>
+export MONOSCOPE_API_KEY=<your-api-key>
+export MONOSCOPE_PROJECT=<your-project-uuid>
+# Optional: target a self-hosted/dev server
+export MONOSCOPE_API_URL=http://localhost:8080
 ```
 
-Verify with: `monoscope auth status`
+Verify with: `monoscope auth status` (in agent mode this returns
+`{authenticated, method, api_url, project}` JSON).
+
+All list commands return a uniform envelope — `{data: [...], pagination: {has_more, total, cursor, page, per_page}}`.
+Use `.data[]` in jq pipelines.
+
+### Output envelopes (memorise these)
+
+| Command | Shape |
+|---|---|
+| `facets [FIELD]` | `{<field_path>: [{value, count}, ...]}` |
+| `issues list`, `monitors list`, ... | `{data: [...], pagination: {has_more, total, cursor, page, per_page}}` |
+| `events search` (and `logs`/`traces`) | `{events: [...], count, has_more, cursor}` |
+
+For triage specifically the chain is **discover → list → bulk-act**:
+
+```bash
+# Discover what services have open issues, then bulk-acknowledge the noisiest one.
+SVC=$(monoscope facets resource.service.name --top 1 \
+        | jq -r '.["resource.service.name"][0].value')
+
+IDS=$(monoscope issues list --status open --service "$SVC" \
+        | jq -r '.data[].id' | paste -sd, -)
+
+monoscope issues bulk acknowledge --ids "$IDS"
+```
+
+The `investigate` skill documents the full discovery → search → context → triage
+pipeline; this skill focuses on the triage half.
 
 ## Instructions
 
 ### 1. Review open issues
 
 ```bash
-# All open issues
-monoscope issues list --status open
+# All open issues — uniform envelope: {data: [...], pagination: {...}}
+monoscope issues list --status open | jq '.data[] | {id, title, severity, service}'
+
+# Count and pagination state
+monoscope issues list --status open | jq '{count: (.data | length), has_more: .pagination.has_more, total: .pagination.total}'
 
 # Filter by service or type
 monoscope issues list --status open --service payment-api
@@ -51,8 +84,8 @@ monoscope issues bulk archive --ids id4,id5
 Log patterns are automatically extracted recurring patterns in your logs. Noisy or expected patterns should be acknowledged or ignored:
 
 ```bash
-# List patterns (most frequent first)
-monoscope log-patterns list --per-page 50
+# List patterns (most frequent first) — same {data, pagination} envelope
+monoscope log-patterns list --per-page 50 | jq '.data[] | {id, frequency: .occurrence_count, sample: .pattern}'
 
 # Inspect a specific pattern
 monoscope log-patterns get <pattern-id>
@@ -113,9 +146,28 @@ monoscope monitors bulk deactivate --ids id4,id5
 If triage involves endpoint-level anomalies:
 
 ```bash
-monoscope endpoints list --search '/payments'
+monoscope endpoints list --search '/payments' | jq '.data[]'
 monoscope endpoints get <endpoint-id>
 ```
+
+### 5. Verify before mutating in bulk
+
+Bulk operations are irreversible. When closing out lots of issues at once,
+verify the IDs first by piping through `jq` — and prefer `--first`/`--id-only`
+on `events search` when chaining lookups:
+
+```bash
+# Preview what you're about to acknowledge
+monoscope issues list --status open --service legacy-billing \
+  | jq -r '.data[] | "\(.id)\t\(.title)"'
+
+# Then bulk-acknowledge
+IDS=$(monoscope issues list --status open --service legacy-billing | jq -r '.data[].id' | paste -sd, -)
+monoscope issues bulk acknowledge --ids "$IDS"
+```
+
+`--debug` (or `MONOSCOPE_DEBUG=1`) prints the outgoing request URL — use it when
+the result of a bulk action is surprising.
 
 ## Output
 

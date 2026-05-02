@@ -41,7 +41,7 @@ curl -fsSL https://monoscope.tech/install.sh | bash
 monoscope auth login
 ```
 
-Set your default project (or pass `MONO_PROJECT` per-session):
+Set your default project (or pass `MONOSCOPE_PROJECT` per-session):
 
 ```bash
 monoscope config set project <your-project-uuid>
@@ -85,9 +85,25 @@ On-call sweep: review open issues, acknowledge noisy log patterns, mute or resol
 
 | Variable | Description |
 |---|---|
-| `MONO_API_KEY` | API key — takes precedence over stored token |
-| `MONO_PROJECT` | Default project UUID |
-| `MONO_API_URL` | API base URL (default: `https://api.monoscope.tech`) |
+| `MONOSCOPE_API_KEY` | API key — takes precedence over stored token |
+| `MONOSCOPE_PROJECT` | Default project UUID |
+| `MONOSCOPE_API_URL` | API base URL (default: `https://api.monoscope.tech`). Point at `http://localhost:8080` to drive a self-hosted dev server from these skills. |
+| `MONOSCOPE_AGENT_MODE` | Set to `1` to force JSON output and disable interactive prompts. Auto-detected when `CI` or `CLAUDE_CODE` is set, so skills launched from Claude Code already get JSON. |
+| `MONOSCOPE_DEBUG` | Set to `1` to print every outgoing request URL+params to stderr — invaluable when an agent gets a 4xx and needs to inspect what it actually sent. |
+
+## Output shapes (stable across versions)
+
+The skills assume these JSON envelopes — they're pinned by integration tests in
+[`test/integration/CLI/CLIE2ESpec.hs`](https://github.com/monoscope-tech/monoscope/blob/master/test/integration/CLI/CLIE2ESpec.hs)
+so a regression breaks CI rather than the skill in production.
+
+| Command | Shape |
+|---|---|
+| `events search`, `logs search`, `traces search`, `events get`, `events context` | `{events: [{id, timestamp, service, summary, trace_id, kind, ...}], count, has_more, cursor}` |
+| `services list` | `{services: [{name, events, last_seen}], count}` |
+| `<resource> list` (`issues`, `monitors`, `dashboards`, `api-keys`, `teams`, `members`, `endpoints`, `log-patterns`) | `{data: [...], pagination: {has_more, total, cursor, page, per_page}}` — use `.data[]` in jq |
+| `--agent auth status` | `{authenticated, method, api_url, project}` |
+| `events context --summary` | base envelope plus `traces: [{trace_id, services, span_count, error_count}, ...]` |
 
 ## Links
 

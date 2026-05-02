@@ -29,8 +29,8 @@ Use for on-call sweeps: reviewing open issues, silencing noisy log patterns, mut
 Both skills require:
 
 ```bash
-export MONO_API_KEY=<your-api-key>
-export MONO_PROJECT=<your-project-uuid>
+export MONOSCOPE_API_KEY=<your-api-key>
+export MONOSCOPE_PROJECT=<your-project-uuid>
 ```
 
 The agent will remind you if these are missing. You can also set them permanently:

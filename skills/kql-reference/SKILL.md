@@ -257,16 +257,48 @@ kind == "span" AND parent_id == null
 
 ## CLI usage
 
+The `monoscope` CLI accepts KQL as the positional `QUERY` argument and adds
+two convenience shorthands that compose with the query via `and`:
+
+| Flag | Expands to |
+|---|---|
+| `--service <name>` | `resource.service.name == "<name>"` |
+| `--level <level>` | `severity.text == "<level>"` |
+| `--kind log\|trace\|span` | sets the wire `source` (`trace` is a CLI alias for `span`) |
+
 ```bash
 # Basic search
-monoscope logs search "level == \"ERROR\"" --since 1h
+monoscope logs search 'level == "ERROR"' --since 1h
 
-# With service filter (composes with the query)
-monoscope logs search "duration > 1s" --service payment-api
+# Shorthand equivalent
+monoscope logs search "" --since 1h --level error
+
+# Service shorthand composes with the positional query
+monoscope logs search 'duration > 1s' --service payment-api
 
 # Aggregation query
-monoscope logs search "level == \"ERROR\" | summarize count() by resource.service.name" -o json
+monoscope logs search 'level == "ERROR" | summarize count() by resource.service.name'
 
-# Discover available fields
+# Schema discovery — the CLI exposes --search/--limit so agents don't load the
+# full schema (~600 fields) into context unnecessarily.
+monoscope schema --search service --limit 20
 monoscope schema -o json | jq '.fields | keys[]'
+
+# Value discovery — what services/levels/methods *actually exist*?
+# Faster than running summarize: facets are precomputed per project.
+monoscope facets resource.service.name --top 10
+monoscope facets severity.text
+monoscope facets   # all faceted fields at once
+
+# Pagination chain
+monoscope events search "" --since 1h --limit 100 --first --id-only
+# → bare event id, suitable as the next argument to `events get`
 ```
+
+**Wire-level rule — KQL uses `==` and `!=`.** The CLI used to emit Lucene-style
+`field:value`, which the server rejected with HTTP 400. If you see
+`error: HTTP 400` from a query that "looks right", check the operator.
+
+**Errors are forwarded.** The server's KQL parser includes line/column markers
+on parse errors and the CLI surfaces those directly — you don't need to pry
+into stderr for a hint.
