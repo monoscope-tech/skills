@@ -100,7 +100,7 @@ so a regression breaks CI rather than the skill in production.
 | Command | Shape |
 |---|---|
 | `events search`, `logs search`, `traces search`, `events get`, `events context` | `{events: [{id, timestamp, service, summary, trace_id, kind, ...}], count, has_more, cursor}` |
-| `services list` | `{services: [{name, events, last_seen}], count}` |
+| `services list` | `{services: [{name, events}], count}` (precomputed via the server's facet store — fast even on huge projects) |
 | `<resource> list` (`issues`, `monitors`, `dashboards`, `api-keys`, `teams`, `members`, `endpoints`, `log-patterns`) | `{data: [...], pagination: {has_more, total, cursor, page, per_page}}` — use `.data[]` in jq |
 | `--agent auth status` | `{authenticated, method, api_url, project}` |
 | `events context --summary` | base envelope plus `traces: [{trace_id, services, span_count, error_count}, ...]` |
