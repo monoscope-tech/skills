@@ -26,9 +26,17 @@ Use for on-call sweeps: reviewing open issues, silencing noisy log patterns, mut
 
 ### `instrument`
 
-Instrument an application with OpenTelemetry to send traces, logs, and metrics to Monoscope. Detects the project language/framework, installs the right OTel packages, writes the SDK init code, sets the OTLP exporter env vars, and verifies data is flowing with the CLI.
+Instrument an application with OpenTelemetry so traces, logs, and metrics flow into Monoscope. Detects the language and framework, installs the appropriate Monoscope SDK or OTel packages, writes the SDK init/middleware code, configures OTLP exporter env vars, and verifies data is flowing with the CLI.
 
-**Triggers:** "instrument my app", "add OpenTelemetry", "set up tracing", "wire up observability", "get data into Monoscope", "configure the OTLP exporter"
+Native Monoscope SDKs (richer: request/response capture, error reporting, outgoing request monitoring) are available for: Express, Fastify, NestJS, FastAPI, Django, Gin, Echo, Chi, Fiber, Spring Boot, Laravel. Standard OTel auto-instrumentation is used for Ruby, Rust, .NET, Flask, and other languages.
+
+Key Monoscope-specific details this skill knows:
+- Endpoint: `http://otelcol.monoscope.tech:4317` (gRPC) or `:4318` (HTTP/protobuf)
+- Auth via `OTEL_RESOURCE_ATTRIBUTES="x-api-key={API_KEY}"` — not headers
+- Native SDK packages: `@monoscopetech/express`, `monoscope-fastapi`, `github.com/monoscope-tech/monoscope-go/gin`, `io.monoscope.springboot:monoscope-springboot`, `monoscope/laravel`
+- Redaction: JSONPath expressions for request/response body fields
+
+**Triggers:** "instrument my app", "add OpenTelemetry", "set up tracing", "wire up observability", "get data into Monoscope", "configure the OTLP exporter", "add the monoscope SDK"
 
 ## Prerequisites
 

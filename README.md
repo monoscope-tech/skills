@@ -84,13 +84,16 @@ On-call sweep: review open issues, acknowledge noisy log patterns, mute or resol
 
 ### `instrument`
 
-Add OpenTelemetry auto-instrumentation to an application so data flows into Monoscope. Detects the project language and framework, installs the right OTel packages, writes the SDK init code, sets the OTLP exporter env vars, and verifies data is flowing with `monoscope services list`.
+Add OpenTelemetry instrumentation to an application so traces, logs, and metrics flow into Monoscope. Detects the language and framework, installs the right Monoscope SDK or OTel packages, writes the SDK init code and middleware wiring, sets the OTLP exporter env vars, and verifies data is flowing with `monoscope services list`.
+
+Supports native Monoscope SDKs (with request/response capture, error reporting, and outgoing-request monitoring) for: **Express**, **Fastify**, **NestJS**, **FastAPI**, **Django**, **Gin**, **Echo**, **Chi**, **Fiber**, **Spring Boot**, **Laravel**. Falls back to standard OTel auto-instrumentation for Ruby, Rust, .NET, Flask, Pyramid, and any other OTel-supported language.
 
 **Example prompts:**
-- "/instrument instrument this app with Monoscope opentelemetry auto instrumentation"
-- "Add OpenTelemetry tracing to this service"
-- "Wire up observability for my Node.js app"
-- "Set up the OTLP exporter for my Python FastAPI service"
+- "Instrument this Express app with Monoscope"
+- "Add OpenTelemetry tracing to my FastAPI service"
+- "Wire up observability for my Go Gin API"
+- "Set up the OTLP exporter for my Spring Boot app"
+- "Get my Django app sending data to Monoscope"
 
 ## Environment variables
 
