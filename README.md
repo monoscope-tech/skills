@@ -37,7 +37,7 @@ Works with Claude Code, Cursor, Cline, GitHub Copilot, and other compatible agen
 Install the `monoscope` CLI and authenticate:
 
 ```bash
-curl -fsSL https://monoscope.tech/install.sh | bash
+curl monoscope.tech/install.sh | sh
 monoscope auth login
 ```
 
@@ -54,6 +54,7 @@ monoscope config set project <your-project-uuid>
 | [`kql-reference`](#kql-reference) | Full KQL query language reference |
 | [`investigate`](#investigate) | Investigate production incidents |
 | [`triage`](#triage) | On-call sweep: issues, alerts, log patterns |
+| [`instrument`](#instrument) | Instrument an app with OpenTelemetry auto-instrumentation |
 
 ### `kql-reference`
 
@@ -80,6 +81,16 @@ On-call sweep: review open issues, acknowledge noisy log patterns, mute or resol
 - "Do an on-call sweep and clear the alert queue"
 - "Mute the noisy database connection monitor for 30 minutes"
 - "Bulk acknowledge the runtime exception issues from last night"
+
+### `instrument`
+
+Add OpenTelemetry auto-instrumentation to an application so data flows into Monoscope. Detects the project language and framework, installs the right OTel packages, writes the SDK init code, sets the OTLP exporter env vars, and verifies data is flowing with `monoscope services list`.
+
+**Example prompts:**
+- "/instrument instrument this app with Monoscope opentelemetry auto instrumentation"
+- "Add OpenTelemetry tracing to this service"
+- "Wire up observability for my Node.js app"
+- "Set up the OTLP exporter for my Python FastAPI service"
 
 ## Environment variables
 

@@ -24,9 +24,15 @@ Use for on-call sweeps: reviewing open issues, silencing noisy log patterns, mut
 
 **Triggers:** "triage open issues", "do an on-call sweep", "acknowledge the alerts", "silence the noisy monitors", "clear the issue queue"
 
+### `instrument`
+
+Instrument an application with OpenTelemetry to send traces, logs, and metrics to Monoscope. Detects the project language/framework, installs the right OTel packages, writes the SDK init code, sets the OTLP exporter env vars, and verifies data is flowing with the CLI.
+
+**Triggers:** "instrument my app", "add OpenTelemetry", "set up tracing", "wire up observability", "get data into Monoscope", "configure the OTLP exporter"
+
 ## Prerequisites
 
-Both skills require:
+All skills require:
 
 ```bash
 export MONOSCOPE_API_KEY=<your-api-key>
@@ -43,6 +49,6 @@ monoscope config set project <your-project-uuid>
 ## Installing the CLI
 
 ```bash
-curl -fsSL https://monoscope.tech/install.sh | bash
+curl monoscope.tech/install.sh | sh
 monoscope auth login
 ```
