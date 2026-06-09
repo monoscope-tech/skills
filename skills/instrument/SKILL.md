@@ -1,601 +1,242 @@
 ---
 name: instrument
-description: Instrument an application with OpenTelemetry to send traces, logs, and metrics to Monoscope. Use when asked to add observability, set up tracing, configure OpenTelemetry, wire up the OTLP exporter, or get data flowing into Monoscope. Works for Node.js (Express, Fastify, NestJS), Python (FastAPI, Django, Flask), Go (Gin, Echo, Chi, Fiber), Java (Spring Boot), PHP (Laravel, Slim, Symfony), .NET, Ruby, Rust, and any OTel-supported language.
-allowed-tools: Bash, Read, Write, Edit, Glob, Grep
+description: Instrument an application with OpenTelemetry to send traces, logs, and metrics to Monoscope. Use when asked to add observability, set up tracing, configure OpenTelemetry, wire up the OTLP exporter, or get data flowing into Monoscope. Works for Node.js (Express, Fastify, NestJS), Python (FastAPI, Django, Flask), Go (Gin, Echo, Chi, Fiber), Java (Spring Boot), PHP (Laravel, Slim, Symfony), .NET, Ruby, Rust, Flutter, and any OTel-supported language.
+allowed-tools: Bash, Read, Write, Edit, Glob, Grep, WebFetch
 ---
 
 # Monoscope: Instrument with OpenTelemetry
 
-Help the user add OpenTelemetry instrumentation to their application so data flows into Monoscope.
+Route the user to the canonical SDK guide, then **prove telemetry actually arrives** — both locally (collector debug exporter) and remotely (Monoscope CLI assertion). Do not skip steps; "looks installed" is not the same as "is emitting."
+
+## Minimum instrumentation coverage (non-negotiable)
+
+A complete integration **must** emit spans for all of the following surfaces. Treat each as a required checklist item — if any is missing for the detected stack, instrument it before declaring the task done.
+
+1. **Incoming HTTP requests** — every server route (framework middleware / handler instrumentation).
+2. **Outgoing HTTP requests** — every client call (fetch / axios / requests / httpx / `net/http` / Guzzle / `HttpClient` / OkHttp, etc.). Auto-instrumentation covers this when enabled — verify it is.
+3. **SQL queries** — all database drivers in use (pg, mysql2, psycopg, SQLAlchemy, GORM, `database/sql`, JDBC, PDO, ActiveRecord, EF Core, etc.). Spans must include `db.system` and `db.statement`.
+4. **Message queues / streaming** — producers and consumers for Kafka, RabbitMQ, SQS, NATS, Redis Streams, Google Pub/Sub, Azure Service Bus, etc. Spans must include `messaging.system` and `messaging.destination.name`.
+5. **Background jobs / scheduled tasks** — every worker, cron, or scheduler (see Step 3 detection table).
+
+**Always prefer auto-instrumentation over manual spans.** Use the language's official OTel auto-instrumentation path first (`@opentelemetry/auto-instrumentations-node`, `opentelemetry-instrument` for Python, `otel-agent` Java javaagent, `OpenTelemetry.AutoInstrumentation` for .NET, the Go `otel*` middleware/contrib packages, etc.). Only fall back to manual span wrapping when no auto-instrumentation exists for that library — and in that case, follow the canonical doc's language-idiomatic pattern.
+
+## Step 0 — Plan first, then execute
+
+Before touching any file, **always** produce a written plan and a todo list (use the `TaskCreate` tool). Do not start installing packages or editing init code until the plan exists. The plan keeps the agent honest about coverage and gives the user a checkpoint to redirect scope.
+
+The todo list **must** include, at minimum, one task per item below — in this order:
+
+1. Detect language, framework, and the libraries in use for each of the five required surfaces (incoming HTTP, outgoing HTTP, SQL, message queues, background jobs).
+2. Fetch the canonical Monoscope SDK doc for the detected framework.
+3. Install SDK / auto-instrumentation packages and wire up init.
+4. Instrument incoming HTTP.
+5. Instrument outgoing HTTP.
+6. Instrument SQL / database drivers.
+7. Instrument message queues / Kafka / streaming.
+8. Instrument background jobs / schedulers / workers.
+9. **Verify locally** that telemetry actually emits (Step 4 — collector debug exporter, per-surface assertions).
+10. Switch to the remote Monoscope endpoint.
+11. **Verify remotely** that telemetry arrives in Monoscope (Step 6 — CLI assertion battery).
+12. Report the coverage matrix and final pass/fail summary.
+
+Mark each todo complete as it finishes — never batch. If a surface genuinely doesn't apply (e.g. no SQL driver in use), keep the todo but resolve it as "none in use — confirmed with user" rather than silently dropping it. The two verification steps (9 and 11) are **mandatory** — the task is not done until both pass.
 
 ## Prerequisites
 
-Ensure the user has a Monoscope account, a project created, and an API key. The API key is found in the dashboard under **API Keys** (bottom-left). They'll also need the project UUID from the project URL.
+Monoscope account, project created, API key copied from **API Keys** in the dashboard. The API key travels via `OTEL_RESOURCE_ATTRIBUTES="x-api-key=…"`, **not** an HTTP header. OTLP endpoint: `http://otelcol.monoscope.tech:4317` (gRPC) or `:4318` (HTTP/protobuf).
 
-## OTLP Endpoints
+## Step 1 — Detect the stack
 
+```bash
+ls package.json pyproject.toml requirements.txt go.mod Cargo.toml pom.xml build.gradle Gemfile composer.json *.csproj 2>/dev/null
 ```
-gRPC:          http://otelcol.monoscope.tech:4317
-HTTP/protobuf: http://otelcol.monoscope.tech:4318
-```
 
-For self-hosted instances, replace `otelcol.monoscope.tech` with your own domain.
+Read the manifest, pick the framework, then map to the canonical doc URL:
 
-## Core Environment Variables
+| Detection | Doc URL |
+|---|---|
+| `package.json` + `express` | https://monoscope.tech/docs/sdks/nodejs/expressjs |
+| `package.json` + `fastify` | https://monoscope.tech/docs/sdks/nodejs/fastifyjs |
+| `package.json` + `@nestjs/core` | https://monoscope.tech/docs/sdks/nodejs/nestjs |
+| `package.json` + `next` | https://monoscope.tech/docs/sdks/nodejs/nextjs |
+| `package.json` + `@adonisjs/core` | https://monoscope.tech/docs/sdks/nodejs/adonisjs |
+| `requirements.txt`/`pyproject.toml` + `fastapi` | https://monoscope.tech/docs/sdks/python/fastapi |
+| Python + `django` | https://monoscope.tech/docs/sdks/python/django |
+| Python + `flask` | https://monoscope.tech/docs/sdks/python/flask |
+| Python + `pyramid` | https://monoscope.tech/docs/sdks/python/pyramid |
+| `go.mod` + `gin-gonic/gin` | https://monoscope.tech/docs/sdks/golang/gin |
+| `go.mod` + `labstack/echo` | https://monoscope.tech/docs/sdks/golang/echo |
+| `go.mod` + `go-chi/chi` | https://monoscope.tech/docs/sdks/golang/chi |
+| `go.mod` + `gofiber/fiber` | https://monoscope.tech/docs/sdks/golang/fiber |
+| `go.mod` + `gorilla/mux` | https://monoscope.tech/docs/sdks/golang/gorillamux |
+| `go.mod` (plain `net/http`) | https://monoscope.tech/docs/sdks/golang/native |
+| `composer.json` + `laravel/framework` | https://monoscope.tech/docs/sdks/php/laravel |
+| `composer.json` + `slim/slim` | https://monoscope.tech/docs/sdks/php/slim |
+| `composer.json` + `symfony/framework-bundle` | https://monoscope.tech/docs/sdks/php/symfony |
+| `pom.xml`/`build.gradle` + Spring Boot | https://monoscope.tech/docs/sdks/java/springboot |
+| `*.csproj` + ASP.NET Core | https://monoscope.tech/docs/sdks/dotnet/dotnetcore |
+| `mix.exs` + Phoenix | https://monoscope.tech/docs/sdks/elixir/phoenix |
+| `pubspec.yaml` + `flutter:` SDK | https://monoscope.tech/docs/sdks/flutter |
+| anything else (Rust, Ruby, Scala, Swift, …) | https://monoscope.tech/docs/sdks/opentelemetry |
 
-These apply to every language and framework:
+## Step 2 — Apply the canonical guide
+
+`WebFetch` the URL above. Extract: install command, middleware/wrapper code, env-var block. Apply them to the user's entry file. If WebFetch fails (offline, redirect), fall back to these universal env vars and the OTel auto-instrumentation path for the language:
 
 ```bash
 OTEL_EXPORTER_OTLP_ENDPOINT="http://otelcol.monoscope.tech:4317"
 OTEL_SERVICE_NAME="my-service"
-OTEL_RESOURCE_ATTRIBUTES="x-api-key={YOUR_API_KEY}"
-OTEL_EXPORTER_OTLP_PROTOCOL="grpc"
+OTEL_RESOURCE_ATTRIBUTES="x-api-key=YOUR_API_KEY"
+OTEL_EXPORTER_OTLP_PROTOCOL="grpc"   # use http/protobuf + :4318 for PHP
 ```
 
-> The API key is passed via `OTEL_RESOURCE_ATTRIBUTES`, not as an HTTP header.
+## Step 3 — Cover the required surfaces (HTTP-out, SQL, queues, jobs)
 
-## Step 1 — Detect the project
+HTTP server middleware only covers inbound requests. The four other required surfaces (outgoing HTTP, SQL, messaging, background jobs) must each be wired up explicitly — usually by enabling the right auto-instrumentation package, occasionally by wrapping a handler by hand.
 
-Read the project to identify the language, framework, and package manager:
+**Detect** what is in use (grep manifests + source). For each row found, enable the matching auto-instrumentation; only fall back to manual spans when none exists.
+
+| Surface | Detect | Preferred auto-instrumentation |
+|---|---|---|
+| **Outgoing HTTP** | `axios`, `node-fetch`, `got`, `undici`; `requests`, `httpx`, `aiohttp`, `urllib3`; Go `net/http` client, `resty`; `Guzzle`, `Symfony\HttpClient`; `HttpClient`, `OkHttp`, `RestTemplate`, `WebClient` | Node: `@opentelemetry/instrumentation-http` + `-undici`/`-fetch`. Python: `opentelemetry-instrumentation-requests` / `-httpx` / `-urllib3` / `-aiohttp-client`. Go: `otelhttp.NewTransport`. Java: javaagent (covers HttpClient/OkHttp/Apache). .NET: `OpenTelemetry.Instrumentation.Http`. PHP: Guzzle middleware from the OTel contrib. |
+| **SQL / DB** | `pg`, `mysql2`, `mongodb`, `prisma`; `psycopg`, `asyncpg`, `sqlalchemy`, `django.db`; `database/sql`, `gorm.io/gorm`, `jackc/pgx`; JDBC drivers; `pdo`, `eloquent`; `ActiveRecord`; `EntityFrameworkCore` | Node: `@opentelemetry/instrumentation-pg` / `-mysql2` / `-mongodb` / `-prisma`. Python: `opentelemetry-instrumentation-psycopg2` / `-sqlalchemy` / `-django` / `-asyncpg`. Go: `otelsql.Register` or `otelgorm`. Java: javaagent covers JDBC. .NET: `OpenTelemetry.Instrumentation.SqlClient` / `EntityFrameworkCore`. PHP: PDO auto-instr. Ruby: `opentelemetry-instrumentation-active_record`. |
+| **Message queues / streaming** | `kafkajs`, `confluent-kafka`, `amqplib`, `bullmq`, `@aws-sdk/client-sqs`, `nats`, `ioredis` streams; `confluent-kafka`, `pika`, `kombu`, `aio-pika`; `segmentio/kafka-go`, `Shopify/sarama`, `streadway/amqp`; Spring `@KafkaListener` / `@RabbitListener` / `@JmsListener`; .NET `Confluent.Kafka`, `MassTransit`; Symfony Messenger; Sidekiq + Karafka | Node: `@opentelemetry/instrumentation-kafkajs` / `-amqplib` / `-aws-sdk` (SQS/SNS). Python: `opentelemetry-instrumentation-kafka-python` / `-pika` / `-confluent-kafka` / `-aio-pika` / `-celery`. Go: `otelkafka` / `otelsarama` / `otelamqp`. Java: javaagent covers Kafka/RabbitMQ/JMS. .NET: `OpenTelemetry.Instrumentation.ConfluentKafka`. Manually add `messaging.system` + `messaging.destination.name` on any consumer the auto-instr doesn't reach. |
+| **Background jobs / schedulers** | Node: `bullmq`, `bull`, `agenda`, `bee-queue`, `node-cron`; `**/workers/**`, `**/jobs/**`. Python: `celery`, `rq`, `dramatiq`, `apscheduler`, `huey`; `manage.py` custom commands. Go: `robfig/cron`, `hibiken/asynq`, `RichardKnop/machinery`; binaries under `cmd/` other than the web server. PHP: `artisan queue:work`, `App\Console\Kernel` schedule, Symfony Messenger handlers. Java: `@Scheduled`, `@KafkaListener`, `@JmsListener`, `@RabbitListener`. .NET: `IHostedService`, `BackgroundService`. Elixir: Oban workers, Broadway pipelines, GenServer pollers. Ruby: Sidekiq workers, ActiveJob, `whenever` cron. | Use the dedicated package where one exists (`opentelemetry-instrumentation-celery`, `opentelemetry-instrumentation-sidekiq`, BullMQ via `@opentelemetry/instrumentation-bullmq`, `otelasynq`). Otherwise wrap each job handler with `tracer.startSpan(job_name, { kind: CONSUMER })` and set `messaging.system` / `messaging.destination.name`. CLIs need an explicit tracer shutdown before `process.exit` or the BatchSpanProcessor will drop spans. |
+
+For each row above where the framework's canonical doc (Step 2) calls out a specific recipe, follow that recipe — it's tuned to the framework's startup order and middleware chain.
+
+If after grepping you cannot find any usage of a given surface, state that explicitly ("no SQL driver in use", "no message queue libraries imported") so the user can correct you. Do **not** silently skip a surface.
+
+## Step 4 — Local emit verification (collector with debug exporter)
+
+Run a local OTel collector, point the app at it, trigger spans, and grep the collector stdout. This catches misconfiguration before production.
+
+**4a. Stand up the collector.** Write `otel-collector-debug.yaml`:
+
+```yaml
+receivers:
+  otlp:
+    protocols: { grpc: { endpoint: 0.0.0.0:4317 }, http: { endpoint: 0.0.0.0:4318 } }
+exporters:
+  debug: { verbosity: detailed }
+service:
+  pipelines:
+    traces:  { receivers: [otlp], exporters: [debug] }
+    metrics: { receivers: [otlp], exporters: [debug] }
+    logs:    { receivers: [otlp], exporters: [debug] }
+```
+
+If `docker info >/dev/null 2>&1` succeeds:
 
 ```bash
-ls package.json pyproject.toml go.mod Cargo.toml pom.xml build.gradle Gemfile composer.json *.csproj 2>/dev/null
+docker run --rm -p 4317:4317 -p 4318:4318 \
+  -v "$(pwd)/otel-collector-debug.yaml:/etc/otelcol-contrib/config.yaml" \
+  otel/opentelemetry-collector-contrib:latest 2>&1 | tee /tmp/otelcol.log
 ```
 
-Then read the manifest to identify the framework (Express, FastAPI, Gin, Spring Boot, Laravel, etc.). Choose the path below that matches.
+Otherwise download the `otelcol-contrib` binary for the user's OS/arch from `https://github.com/open-telemetry/opentelemetry-collector-releases/releases/latest`, extract, and run `./otelcol-contrib --config otel-collector-debug.yaml 2>&1 | tee /tmp/otelcol.log`. Run in the background.
 
----
+**4b. Boot the app at the local collector.** Override `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317` for this run (keep production env untouched). Start the app in the background; capture the PID for cleanup.
 
-## Step 2 — Install & configure by language
+> **Mobile / Flutter caveat:** physical devices and iOS simulators can't reach `localhost`. Use the host's LAN IP (`ipconfig getifaddr en0` on macOS) instead, e.g. `http://192.168.1.42:4317`. Android emulators map host loopback to `10.0.2.2`. Configure the collector to bind on `0.0.0.0` (the YAML above already does).
 
-### Node.js — Express
+**4c. Discover entry points and trigger spans.** Don't just `curl /` — enumerate concrete things to invoke.
 
-Monoscope has a native SDK that wraps OTel with request/response capture and error reporting.
+- **HTTP routes:**
+  - FastAPI / Spring Boot Actuator: `curl localhost:<port>/openapi.json` or `/actuator/mappings`.
+  - Express/Fastify/Nest: scan `app.get/post/...` calls or controller decorators.
+  - Django: `python manage.py show_urls` (django-extensions) or grep `urls.py`.
+  - Gin/Echo/Chi: grep `r.GET(` / `r.POST(` etc.
+  - Laravel: `php artisan route:list --json`.
+  - Rails: `bundle exec rails routes --json`.
+  - Fallback: ask the user for one known route.
+
+  Hit at least 3 routes (capped at 10), GET directly, POST/PUT/PATCH with `Content-Type: application/json` and `{}` (or a body inferred from the OpenAPI schema). Skip auth-gated routes unless the user provides a token.
+
+- **Background jobs:** invoke each enumerated worker once.
+  - BullMQ/Bull/Agenda → write `trigger-job.js` that imports the queue and calls `queue.add('test-trigger', {})`.
+  - Celery → `python -c "from app.tasks import t; t.delay()"` or `celery -A <app> call <task>`.
+  - Sidekiq/ActiveJob → `bundle exec rails runner "MyJob.perform_later"`.
+  - Go cron/asynq → one-shot binary that calls the handler directly.
+  - Spring `@Scheduled` → temporarily lower fixedRate, or call the bean via a debug endpoint.
+  - Laravel queue → `php artisan tinker` to dispatch, then `php artisan queue:work --once`.
+  - .NET `BackgroundService` → call the registered service from a one-shot console invocation.
+  - Last resort: instruct the user to run their job manually.
+
+  Capture each trigger's exit code / response status. Non-2xx / non-zero means the trigger itself failed — surface and stop; don't blame instrumentation.
+
+**4d. Assert.** Wait 2–3s for the BatchSpanProcessor to flush, then grep `/tmp/otelcol.log`:
 
 ```bash
-npm install --save @monoscopetech/express @opentelemetry/api @opentelemetry/auto-instrumentations-node
+grep -c "service.name: Str(<svc>)" /tmp/otelcol.log         # ≥1
+grep -c "Span Kind     : Server" /tmp/otelcol.log           # ≥1 per HTTP route hit
+# For each triggered job name:
+grep -c "Name           : <job-name>" /tmp/otelcol.log      # ≥1
 ```
 
-Add to the top of your entry file (before other imports):
+Report exactly which expected spans are missing. If any are missing, **stop**; the most common causes are: SDK init imported after the framework, wrong env-var name, or BatchSpanProcessor not flushing before the app exits (CLIs need an explicit shutdown). Fix and re-run before going to remote. Kill the background app + collector when done.
 
-```js
-import 'dotenv/config';
-import '@opentelemetry/auto-instrumentations-node/register';
-import Monoscope from '@monoscopetech/express';
+## Step 5 — Switch to remote
 
-const monoscope = Monoscope.NewClient({
-  serviceName: 'my-service',
-  debug: false,
-  // captureRequestBody: true,
-  // captureResponseBody: true,
-  // redactHeaders: ['Authorization'],
-  // redactResponseBody: ['$.password'],
-});
+Set `OTEL_EXPORTER_OTLP_ENDPOINT=http://otelcol.monoscope.tech:4317` and confirm `OTEL_RESOURCE_ATTRIBUTES` contains `x-api-key=…`. Restart the app. Re-trigger the same routes and jobs from Step 4c so we validate the same surface remotely.
 
-// After app = express():
-app.use(monoscope.expressMiddleware);
-app.use(monoscope.errorMiddleware); // place after routes to capture errors
-```
+## Step 6 — Remote assertion via Monoscope CLI
 
-Set env vars:
+After ~30s of ingestion, run the assertion battery and grade each independently with `jq -e`:
 
 ```bash
-OTEL_EXPORTER_OTLP_ENDPOINT="http://otelcol.monoscope.tech:4317"
-OTEL_SERVICE_NAME="my-service"
-OTEL_RESOURCE_ATTRIBUTES="x-api-key={YOUR_API_KEY}"
-OTEL_EXPORTER_OTLP_PROTOCOL="grpc"
+SVC="<service-name>"
+
+# A. Service registered
+monoscope services list --since 5m | jq -e --arg s "$SVC" '.data[] | select(.service_name == $s)' >/dev/null \
+  && echo "✓ A service registered" || echo "✗ A service MISSING"
+
+# B. ≥1 server-kind span
+monoscope traces search "resource.service.name == \"$SVC\" and span.kind == \"Server\"" --since 5m --limit 1 \
+  | jq -e '.events | length > 0' >/dev/null \
+  && echo "✓ B server span" || echo "✗ B no server span"
+
+# C. Each triggered route
+for route in "${TRIGGERED_ROUTES[@]}"; do
+  monoscope traces search "resource.service.name == \"$SVC\" and attributes.http.route == \"$route\"" --since 5m --limit 1 \
+    | jq -e '.events | length > 0' >/dev/null \
+    && echo "✓ C $route" || echo "✗ C MISSING $route"
+done
+
+# D. Each triggered background job
+for job in "${TRIGGERED_JOBS[@]}"; do
+  monoscope traces search "resource.service.name == \"$SVC\" and span.name has \"$job\"" --since 5m --limit 1 \
+    | jq -e '.events | length > 0' >/dev/null \
+    && echo "✓ D $job" || echo "✗ D MISSING $job"
+done
+
+# E. Logs flowing
+monoscope logs search "resource.service.name == \"$SVC\"" --since 5m --limit 1 \
+  | jq -e '.events | length > 0' >/dev/null \
+  && echo "✓ E logs flowing" || echo "✗ E no logs"
 ```
 
-**Monitoring outgoing Axios requests:**
+Print a final summary. If anything is `✗`, name the likely cause (auth filter dropping requests, sampling, redaction stripping `http.route`, API key wrong, network egress blocked) and stop. Don't claim success when assertions fail.
 
-```js
-// Global (all axios calls):
-Monoscope.NewClient({ monitorAxios: axiosInstance });
-
-// Per-request:
-import { observeAxios } from '@monoscopetech/express';
-const res = await observeAxios({ urlWildcard: '/api/v1/:id' })(axiosInstance.get('/api/v1/123'));
-```
-
-**Reporting errors manually:**
-
-```js
-import { reportError } from '@monoscopetech/express';
-try { /* ... */ } catch (err) { reportError(req, err); throw err; }
-```
-
----
-
-### Node.js — Fastify
+**No app code yet?** Smoke-test the pipeline alone with `telemetrygen`:
 
 ```bash
-npm install --save @monoscopetech/fastify @opentelemetry/api @opentelemetry/auto-instrumentations-node
-```
-
-```js
-import 'dotenv/config';
-import '@opentelemetry/auto-instrumentations-node/register';
-import Monoscope from '@monoscopetech/fastify';
-
-const monoscopeClient = Monoscope.NewClient({ serviceName: 'my-service' });
-monoscopeClient.initializeHooks(fastify); // pass your fastify instance
-```
-
-Same env vars as Express. Axios monitoring and `reportError` work identically.
-
----
-
-### Node.js — NestJS
-
-With the default Express adapter:
-
-```bash
-npm install --save @monoscopetech/express @opentelemetry/api @opentelemetry/auto-instrumentations-node
-```
-
-In `main.ts`:
-
-```ts
-import 'dotenv/config';
-import '@opentelemetry/auto-instrumentations-node/register';
-import Monoscope from '@monoscopetech/express';
-
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  const monoscope = Monoscope.NewClient({ serviceName: 'my-service' });
-  app.use(monoscope.expressMiddleware);
-  app.use(monoscope.errorMiddleware);
-  await app.listen(3000);
-}
-```
-
-With the Fastify adapter, follow the Fastify guide above instead.
-
----
-
-### Python — FastAPI
-
-```bash
-pip install monoscope-fastapi opentelemetry-distro opentelemetry-exporter-otlp
-opentelemetry-bootstrap -a install
-```
-
-```python
-# main.py
-from monoscope_fastapi import Monoscope
-from fastapi import FastAPI
-
-app = FastAPI()
-monoscope = Monoscope(
-    service_name="my-service",
-    # capture_request_body=True,
-    # capture_response_body=True,
-    # redact_headers=["Authorization"],
-    # redact_response_body=["$.password"],
-)
-app.middleware("http")(monoscope.middleware)
-```
-
-Set env vars and run:
-
-```bash
-export OTEL_EXPORTER_OTLP_ENDPOINT="http://otelcol.monoscope.tech:4317"
-export OTEL_SERVICE_NAME="my-service"
-export OTEL_RESOURCE_ATTRIBUTES="x-api-key={YOUR_API_KEY}"
-export OTEL_EXPORTER_OTLP_PROTOCOL="grpc"
-export OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED=true
-
-opentelemetry-instrument uvicorn main:app --host 0.0.0.0 --port 8000
-# or: opentelemetry-instrument gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker
-```
-
-**Reporting errors / monitoring outgoing requests:**
-
-```python
-from monoscope_fastapi import report_error, observe_request
-
-# In exception handler:
-report_error(request, exc)
-
-# Wrapping httpx for outgoing request monitoring:
-async with observe_request(request) as client:
-    resp = await client.get("https://api.example.com/data")
-```
-
----
-
-### Python — Django
-
-```bash
-pip install monoscope-django opentelemetry-distro opentelemetry-exporter-otlp
-opentelemetry-bootstrap -a install
-```
-
-In `settings.py`:
-
-```python
-MIDDLEWARE = [
-    'monoscope_django.MonoscopeMiddleware',
-    # ... other middleware
-]
-
-# Optional config via settings:
-MONOSCOPE_CAPTURE_REQUEST_BODY = True
-MONOSCOPE_CAPTURE_RESPONSE_BODY = True
-MONOSCOPE_REDACT_HEADERS = ["Authorization"]
-MONOSCOPE_REDACT_REQUEST_BODY = ["$.password"]
-MONOSCOPE_REDACT_RESPONSE_BODY = ["$.password"]
-```
-
-```bash
-export OTEL_EXPORTER_OTLP_ENDPOINT="http://otelcol.monoscope.tech:4317"
-export OTEL_SERVICE_NAME="my-service"
-export OTEL_RESOURCE_ATTRIBUTES="x-api-key={YOUR_API_KEY}"
-export OTEL_EXPORTER_OTLP_PROTOCOL="grpc"
-export DJANGO_SETTINGS_MODULE="myapp.settings"
-
-opentelemetry-instrument python3 manage.py runserver --noreload
-# or: opentelemetry-instrument gunicorn myapp.wsgi
-```
-
----
-
-### Python — Flask / Pyramid / Generic
-
-```bash
-pip install opentelemetry-sdk opentelemetry-exporter-otlp opentelemetry-distro
-opentelemetry-bootstrap -a install
-```
-
-```bash
-export OTEL_EXPORTER_OTLP_ENDPOINT="http://otelcol.monoscope.tech:4317"
-export OTEL_SERVICE_NAME="my-service"
-export OTEL_RESOURCE_ATTRIBUTES="x-api-key={YOUR_API_KEY}"
-export OTEL_EXPORTER_OTLP_PROTOCOL="grpc"
-
-opentelemetry-instrument python app.py
-```
-
-Auto-instrumentation handles Flask, SQLAlchemy, requests, etc. automatically.
-
----
-
-### Go — Gin
-
-```bash
-go get github.com/monoscope-tech/monoscope-go/gin
-```
-
-```go
-import (
-    monoscope "github.com/monoscope-tech/monoscope-go/gin"
-)
-
-func main() {
-    // Call once at startup before creating the router:
-    monoscope.ConfigureOpenTelemetry()
-
-    router := gin.New()
-    router.Use(monoscope.Middleware(monoscope.Config{
-        ServiceName:         "my-service",
-        // CaptureRequestBody:  true,
-        // CaptureResponseBody: true,
-        // RedactHeaders:       []string{"Authorization"},
-        // RedactResponseBody:  []string{"$.password"},
-    }))
-    // ...
-}
-```
-
-```bash
-export OTEL_EXPORTER_OTLP_ENDPOINT="http://otelcol.monoscope.tech:4317"
-export OTEL_SERVICE_NAME="my-service"
-export OTEL_RESOURCE_ATTRIBUTES="x-api-key={YOUR_API_KEY}"
-export OTEL_EXPORTER_OTLP_PROTOCOL="grpc"
-```
-
-**Reporting errors / monitoring outgoing requests:**
-
-```go
-// Error reporting:
-monoscope.ReportError(c.Request.Context(), err)
-
-// Outgoing HTTP monitoring:
-client := monoscope.HTTPClient(monoscope.WithRedactHeaders([]string{"Authorization"}))
-resp, err := client.Get("https://api.example.com/data")
-```
-
----
-
-### Go — Echo / Chi / Fiber / Gorilla Mux / Native
-
-Same env vars as Gin. Replace the import path:
-
-```bash
-go get github.com/monoscope-tech/monoscope-go/echo   # Echo
-go get github.com/monoscope-tech/monoscope-go/chi    # Chi
-go get github.com/monoscope-tech/monoscope-go/fiber  # Fiber
-go get github.com/monoscope-tech/monoscope-go/mux    # Gorilla Mux
-go get github.com/monoscope-tech/monoscope-go        # Native net/http
-```
-
-Setup pattern is identical: `monoscope.ConfigureOpenTelemetry()` then `router.Use(monoscope.Middleware(...))`.
-
----
-
-### Java — Spring Boot
-
-Add the Monoscope SDK to `pom.xml`:
-
-```xml
-<dependency>
-  <groupId>io.monoscope.springboot</groupId>
-  <artifactId>monoscope-springboot</artifactId>
-  <version>2.0.9</version>
-</dependency>
-```
-
-Download the OTel Java agent:
-
-```bash
-curl -L -O https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/latest/download/opentelemetry-javaagent.jar
-```
-
-Annotate the main class:
-
-```java
-import io.monoscope.springboot.annotations.EnableMonoscope;
-
-@SpringBootApplication
-@EnableMonoscope
-public class DemoApplication { ... }
-```
-
-Configure in `src/main/resources/application.properties`:
-
-```properties
-monoscope.captureRequestBody=true
-monoscope.captureResponseBody=true
-monoscope.serviceName=my-service
-# monoscope.redactHeaders=Authorization,X-Api-Key
-# monoscope.redactRequestBody=$.password,$.creditCardNumber
-# monoscope.redactResponseBody=$.password,$.creditCardNumber
-```
-
-Set env vars and run:
-
-```bash
-export OTEL_EXPORTER_OTLP_ENDPOINT="http://otelcol.monoscope.tech:4317"
-export OTEL_SERVICE_NAME="my-service"
-export OTEL_RESOURCE_ATTRIBUTES="x-api-key={YOUR_API_KEY}"
-export OTEL_EXPORTER_OTLP_PROTOCOL="grpc"
-
-java -javaagent:./opentelemetry-javaagent.jar -jar target/app.jar
-# or via Maven:
-mvn spring-boot:run -Dspring-boot.run.jvmArguments="-javaagent:./opentelemetry-javaagent.jar"
-```
-
----
-
-### PHP — Laravel
-
-Install the OTel PHP extension first:
-
-```bash
-pecl install opentelemetry
-# Add to php.ini: extension=opentelemetry.so
-```
-
-```bash
-composer require open-telemetry/sdk open-telemetry/exporter-otlp monoscope/laravel
-```
-
-Register the middleware in `app/Http/Kernel.php`:
-
-```php
-protected $middlewareGroups = [
-    'api' => [
-        \Monoscope\Http\Middleware\Monoscope::class,
-    ],
-];
-```
-
-Set env vars (note: HTTP/protobuf for PHP):
-
-```bash
-export OTEL_PHP_AUTOLOAD_ENABLED=true
-export OTEL_SERVICE_NAME="my-service"
-export OTEL_TRACES_EXPORTER=otlp
-export OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
-export OTEL_EXPORTER_OTLP_ENDPOINT="http://otelcol.monoscope.tech:4318"
-export OTEL_RESOURCE_ATTRIBUTES="x-api-key={YOUR_API_KEY}"
-export OTEL_PROPAGATORS=baggage,tracecontext
-# Optional:
-# MONOSCOPE_CAPTURE_REQUEST_BODY=true
-# MONOSCOPE_REDACT_HEADERS=Authorization,X-Api-Key
-# MONOSCOPE_REDACT_REQUEST_BODY=$.password
-```
-
----
-
-### Ruby
-
-```bash
-gem install opentelemetry-sdk opentelemetry-exporter-otlp opentelemetry-instrumentation-all
-```
-
-```ruby
-# config/initializers/opentelemetry.rb (Rails) or require at app startup
-require 'opentelemetry/sdk'
-require 'opentelemetry/exporter/otlp'
-require 'opentelemetry/instrumentation/all'
-
-OpenTelemetry::SDK.configure do |c|
-  c.service_name = 'my-service'
-  c.use_all
-end
-```
-
-```bash
-export OTEL_EXPORTER_OTLP_ENDPOINT="http://otelcol.monoscope.tech:4317"
-export OTEL_SERVICE_NAME="my-service"
-export OTEL_RESOURCE_ATTRIBUTES="x-api-key={YOUR_API_KEY}"
-export OTEL_EXPORTER_OTLP_PROTOCOL="grpc"
-```
-
----
-
-### Rust
-
-```toml
-# Cargo.toml
-[dependencies]
-opentelemetry = { version = "0.27", features = ["trace"] }
-opentelemetry_sdk = { version = "0.27", features = ["rt-tokio"] }
-opentelemetry-otlp = { version = "0.27", features = ["grpc-tonic"] }
-```
-
-```rust
-let exporter = opentelemetry_otlp::new_exporter()
-    .tonic()
-    .with_endpoint("http://otelcol.monoscope.tech:4317");
-let tracer = opentelemetry_otlp::new_pipeline()
-    .tracing()
-    .with_exporter(exporter)
-    .install_batch(opentelemetry_sdk::runtime::Tokio)?;
-```
-
-Pass the API key via `OTEL_RESOURCE_ATTRIBUTES="x-api-key={YOUR_API_KEY}"`.
-
----
-
-### .NET / C#
-
-```bash
-dotnet add package OpenTelemetry
-dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol
-dotnet add package OpenTelemetry.Extensions.Hosting
-dotnet add package OpenTelemetry.Instrumentation.AspNetCore
-```
-
-```csharp
-builder.Services.AddOpenTelemetry()
-    .WithTracing(b => b
-        .AddAspNetCoreInstrumentation()
-        .AddOtlpExporter(o => {
-            o.Endpoint = new Uri("http://otelcol.monoscope.tech:4317");
-            o.Protocol = OtlpExportProtocol.Grpc;
-        }));
-```
-
-Set env vars:
-
-```bash
-OTEL_SERVICE_NAME="my-service"
-OTEL_RESOURCE_ATTRIBUTES="x-api-key={YOUR_API_KEY}"
-```
-
----
-
-## Step 3 — Verify data is flowing
-
-**Quick smoke test with telemetrygen** (before deploying your app):
-
-```bash
-# Install telemetrygen
 go install github.com/open-telemetry/opentelemetry-collector-contrib/cmd/telemetrygen@latest
-
-# Send test traces
-telemetrygen traces \
-  --otlp-endpoint otelcol.monoscope.tech:4317 \
-  --otlp-header "x-api-key={YOUR_API_KEY}" \
-  --duration 5s
+telemetrygen traces --otlp-endpoint otelcol.monoscope.tech:4317 \
+  --otlp-header "x-api-key=YOUR_API_KEY" --duration 5s
+monoscope traces search '' --since 2m --limit 5
 ```
 
-**Verify with the CLI after generating real traffic:**
+## Step 7 — Optional: redaction & custom spans
 
-```bash
-# Should show events within ~30 seconds of startup
-monoscope services list --since 5m
-monoscope logs search "" --since 5m --limit 5
-monoscope traces search "" --since 5m --limit 5
-```
-
-**Troubleshooting if no data appears after 1–2 minutes:**
-
-1. Check `OTEL_EXPORTER_OTLP_ENDPOINT` — must be `http://otelcol.monoscope.tech:4317` (gRPC) or `:4318` (HTTP). No trailing slash.
-2. Check `OTEL_RESOURCE_ATTRIBUTES` includes `x-api-key={YOUR_API_KEY}` — this is how auth works, not via headers.
-3. Check `OTEL_EXPORTER_OTLP_PROTOCOL` is set (`grpc` for most, `http/protobuf` for PHP).
-4. Enable OTel debug logging: `OTEL_LOG_LEVEL=debug` — exporter errors appear on stdout.
-5. For Node.js: ensure `@opentelemetry/auto-instrumentations-node/register` is imported before the framework code.
-6. For Python: use `opentelemetry-instrument` to launch the app, not plain `python`.
-
----
-
-## Step 4 — Redacting sensitive data (optional)
-
-All native SDKs support field-level redaction using JSONPath. Configure before going to production:
-
-```bash
-# Node.js env vars (or pass as config options to NewClient):
-MONOSCOPE_REDACT_HEADERS="Authorization,X-Api-Key"
-MONOSCOPE_REDACT_REQUEST_BODY="$.password,$.creditCardNumber"
-MONOSCOPE_REDACT_RESPONSE_BODY="$.password,$.creditCardNumber"
-
-# Python (Django):
-MONOSCOPE_REDACT_HEADERS="Authorization"
-MONOSCOPE_REDACT_REQUEST_BODY="$.password"
-```
-
-Redacted fields are zeroed out on your servers before leaving — they never reach Monoscope.
-
----
-
-## Step 5 — Add custom spans and attributes (optional)
-
-Once auto-instrumentation is working, add custom spans for business-critical paths:
-
-```js
-// Node.js
-import { trace } from '@opentelemetry/api';
-const tracer = trace.getTracer('my-service');
-const span = tracer.startActiveSpan('process-payment', (span) => {
-  span.setAttributes({ 'payment.amount': 99.99, 'payment.currency': 'USD' });
-  // ... do work ...
-  span.end();
-});
-```
-
-```python
-# Python
-from opentelemetry import trace
-tracer = trace.get_tracer("my-service")
-with tracer.start_as_current_span("process-payment") as span:
-    span.set_attribute("payment.amount", 99.99)
-```
-
-```go
-// Go
-tracer := otel.Tracer("my-service")
-ctx, span := tracer.Start(ctx, "process-payment")
-span.SetAttributes(attribute.Float64("payment.amount", 99.99))
-defer span.End()
-```
-
-These attributes are searchable in Monoscope via KQL:
-
-```
-attributes.payment.currency == "USD" and severity.text == "error"
-```
-
----
+Both are documented per-language on the same canonical doc page from Step 1 — point the user there rather than restating. Universal hint: native SDKs accept `redactHeaders` / `redactRequestBody` / `redactResponseBody` (JSONPath), and any OTel SDK exposes `tracer.startSpan(...)` for custom spans.
 
 ## Output
 
-After completing instrumentation, confirm:
-
-1. Which packages were installed and where the config lives
-2. Which env vars need to be set (suggest adding them to `.env` / `.env.example`)
-3. That `monoscope services list --since 5m` shows the service name
-4. Any framework-specific notes (middleware registration, agent flags, etc.)
-5. Which sensitive fields are configured for redaction (if any)
+Report:
+1. Detected language/framework + canonical doc URL fetched.
+2. Packages installed (auto-instrumentation preferred) and where init lives.
+3. Coverage matrix for the five required surfaces — for each: **incoming HTTP**, **outgoing HTTP**, **SQL**, **message queues / Kafka**, **background jobs** — state the library detected, the auto-instrumentation enabled (or "manual span wrap"), or "none in use — confirm".
+4. Local collector verify result (per-route, per-job pass/fail).
+5. Remote CLI assertion battery output.
+6. Env vars set; suggest committing them to `.env.example`.
