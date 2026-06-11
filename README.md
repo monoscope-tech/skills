@@ -54,6 +54,7 @@ monoscope config set project <your-project-uuid>
 | [`kql-reference`](#kql-reference) | Full KQL query language reference |
 | [`investigate`](#investigate) | Investigate production incidents |
 | [`triage`](#triage) | On-call sweep: issues, alerts, log patterns |
+| [`manage`](#manage) | Monitors & dashboards as code (create alerts, GitOps apply) |
 | [`instrument`](#instrument) | Instrument an app with OpenTelemetry auto-instrumentation |
 
 ### `kql-reference`
@@ -81,6 +82,18 @@ On-call sweep: review open issues, acknowledge noisy log patterns, mute or resol
 - "Do an on-call sweep and clear the alert queue"
 - "Mute the noisy database connection monitor for 30 minutes"
 - "Bulk acknowledge the runtime exception issues from last night"
+
+### `manage`
+
+Create and manage alert monitors and dashboards **as code**: YAML files
+upserted with `monoscope monitors apply` / `dashboards apply` (idempotent —
+keyed by title / file_path), plus the `yaml` dump → edit → apply round-trip.
+
+**Example prompts:**
+- "Alert me when checkout errors exceed 10 in 15 minutes"
+- "Create a latency dashboard for the payment service"
+- "Put our monitors in the repo and apply them from CI"
+- "Add a p99 widget to the on-call dashboard"
 
 ### `instrument`
 

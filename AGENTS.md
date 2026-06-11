@@ -24,6 +24,12 @@ Use for on-call sweeps: reviewing open issues, silencing noisy log patterns, mut
 
 **Triggers:** "triage open issues", "do an on-call sweep", "acknowledge the alerts", "silence the noisy monitors", "clear the issue queue"
 
+### `manage`
+
+Create and manage alert monitors and dashboards as code: write monitor/dashboard YAML, apply it idempotently (`monitors apply` keys on title, `dashboards apply` on file_path), and round-trip live resources through `yaml` dumps. Use for "alert me when...", dashboard creation, widget edits, and GitOps observability config.
+
+**Triggers:** "alert me when...", "create a monitor for...", "make a dashboard...", "add a widget...", "apply our monitors from CI"
+
 ### `instrument`
 
 Instrument an application with OpenTelemetry so traces, logs, and metrics flow into Monoscope. Detects the language and framework, installs the appropriate Monoscope SDK or OTel packages, writes the SDK init/middleware code, configures OTLP exporter env vars, and verifies data is flowing with the CLI.
