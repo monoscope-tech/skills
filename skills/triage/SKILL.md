@@ -17,7 +17,7 @@ export MONOSCOPE_PROJECT=<your-project-uuid>
 export MONOSCOPE_API_URL=http://localhost:8080
 ```
 
-Verify with: `monoscope auth status` (in agent mode this returns
+Verify with: `monoscope auth status` (when piped or run with `--json` this returns
 `{authenticated, method, api_url, project}` JSON).
 
 All list commands return a uniform envelope — `{data: [...], pagination: {has_more, total, cursor, page, per_page}}`.

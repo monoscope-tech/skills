@@ -17,12 +17,12 @@ export MONOSCOPE_PROJECT=<your-project-uuid>
 export MONOSCOPE_API_URL=http://localhost:8080
 ```
 
-Verify with: `monoscope auth status` (in agent mode this returns
-`{authenticated, method, api_url, project}` JSON — `monoscope --agent auth status | jq -r .authenticated`).
+Verify with: `monoscope auth status` (when piped this returns
+`{authenticated, method, api_url, project}` JSON — `monoscope auth status | jq -r .authenticated`).
 
-Set `MONOSCOPE_AGENT_MODE=1` (or run with `--agent`) to force JSON output and disable
-interactive prompts. The runtime auto-detects this when `CI` or `CLAUDE_CODE` is
-set — invocations from this skill already get JSON.
+Output format is auto-detected from stdout: TTY → table, pipe/redirect → JSON —
+so invocations from this skill already get JSON. Force a format with the global
+`--json`, `--yaml`, or `--table` flags (precedence `--json` > `--yaml` > `--table`).
 
 ## The full pipeline (TL;DR)
 
@@ -62,7 +62,7 @@ monoscope issues list --service "$SVC" --status open \
 | `events search` (and `logs`/`traces`) | `{events: [...], count, has_more, cursor}` |
 | `events context --summary` | `{events, count, traces: [{trace_id, services, span_count, error_count}]}` |
 | `issues list`, `monitors list`, ... | `{data: [...], pagination: {has_more, total, cursor, page, per_page}}` |
-| `auth status` (agent mode) | `{authenticated, method, api_url, project}` |
+| `auth status` (piped or `--json`) | `{authenticated, method, api_url, project}` |
 
 Use `.events[]` for event-shaped responses and `.data[]` for everything else —
 **not** `.items[]` (legacy shape; the CLI normalises it to `.data`).
@@ -82,7 +82,7 @@ monoscope services list --since 24h
 # context.
 monoscope schema --search service --limit 20
 monoscope schema --search http
-monoscope schema -o json | jq '.fields | keys[]' | head -50
+monoscope schema --json | jq '.fields | keys[]' | head -50
 
 # Discover what *values* exist for those fields (precomputed, fast).
 # Far cheaper than running `summarize count() by ...` yourself — and
@@ -118,7 +118,7 @@ monoscope logs search 'body has "payment failed"' --service checkout-api --since
 # Time-bounded window
 monoscope logs search 'body has "timeout"' --from 2026-04-15T10:00:00Z --to 2026-04-15T11:00:00Z
 
-# Limit results and pipe to jq. The agent-mode envelope is stable:
+# Limit results and pipe to jq. The JSON envelope is stable:
 #   {events: [{id, timestamp, service, summary, ...}], count, has_more, cursor}
 monoscope logs search 'attributes.exception.type != null' --since 30m --limit 50 \
   | jq '.events[] | {id, service: .["resource.service.name"], summary}'
@@ -238,8 +238,8 @@ After investigation, produce a structured summary:
 
 - Always start with a time-bounded search (`--since`) rather than open-ended queries
 - Use `monoscope schema` to find the right field names before constructing KQL filters
-- Use `-o json | jq` when you need to extract specific fields for further processing
+- Use `--json | jq` when you need to extract specific fields for further processing (piped output is already JSON)
 - When a trace ID appears in logs, always follow up with `--tree` to see the full span hierarchy
 - If the issue is ongoing, `events tail` gives a live view; use `--grep` to reduce noise
 - Check metrics alongside logs — a spike in error rate often pinpoints the blast radius
-- Output table format is default on TTY; use `-o json` for programmatic processing
+- Output is a table on a TTY and JSON when piped; use `--json` to force JSON regardless

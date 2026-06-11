@@ -102,8 +102,12 @@ Supports native Monoscope SDKs (with request/response capture, error reporting, 
 | `MONOSCOPE_API_KEY` | API key — takes precedence over stored token |
 | `MONOSCOPE_PROJECT` | Default project UUID |
 | `MONOSCOPE_API_URL` | API base URL (default: `https://api.monoscope.tech`). Point at `http://localhost:8080` to drive a self-hosted dev server from these skills. |
-| `MONOSCOPE_AGENT_MODE` | Set to `1` to force JSON output and disable interactive prompts. Auto-detected when `CI` or `CLAUDE_CODE` is set, so skills launched from Claude Code already get JSON. |
-| `MONOSCOPE_DEBUG` | Set to `1` to print every outgoing request URL+params to stderr — invaluable when an agent gets a 4xx and needs to inspect what it actually sent. |
+| `MONOSCOPE_DEBUG` | Set to `1` to print every outgoing request URL+params to stderr — invaluable when an agent gets a 4xx and needs to inspect what it actually sent. Same as the global `--debug` flag. |
+| `MONOSCOPE_FORCE_COLOR` | Set to `1` to keep TTY-style (table) output even when stdout is piped. |
+
+## Output format
+
+Output format is auto-detected from stdout: TTY → table, pipe/redirect → JSON — so agents piping output get JSON automatically. Force a format with the global `--json`, `--yaml`, or `--table` flags (precedence `--json` > `--yaml` > `--table`). `-p/--project PID` overrides the project per-invocation.
 
 ## Output shapes (stable across versions)
 
@@ -116,7 +120,8 @@ so a regression breaks CI rather than the skill in production.
 | `events search`, `logs search`, `traces search`, `events get`, `events context` | `{events: [{id, timestamp, service, summary, trace_id, kind, ...}], count, has_more, cursor}` |
 | `services list` | `{services: [{name, events}], count}` (precomputed via the server's facet store — fast even on huge projects) |
 | `<resource> list` (`issues`, `monitors`, `dashboards`, `api-keys`, `teams`, `members`, `endpoints`, `log-patterns`) | `{data: [...], pagination: {has_more, total, cursor, page, per_page}}` — use `.data[]` in jq |
-| `--agent auth status` | `{authenticated, method, api_url, project}` |
+| `auth status` (piped or `--json`) | `{authenticated, method, api_url, project}` |
+| `facets [FIELD]` | `{<field_path>: [{value, count}, ...]}` |
 | `events context --summary` | base envelope plus `traces: [{trace_id, services, span_count, error_count}, ...]` |
 
 ## Links

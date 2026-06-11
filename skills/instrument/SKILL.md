@@ -188,7 +188,7 @@ After ~30s of ingestion, run the assertion battery and grade each independently 
 SVC="<service-name>"
 
 # A. Service registered
-monoscope services list --since 5m | jq -e --arg s "$SVC" '.data[] | select(.service_name == $s)' >/dev/null \
+monoscope services list --since 5m | jq -e --arg s "$SVC" '.services[] | select(.name == $s)' >/dev/null \
   && echo "✓ A service registered" || echo "✗ A service MISSING"
 
 # B. ≥1 server-kind span
@@ -218,12 +218,10 @@ monoscope logs search "resource.service.name == \"$SVC\"" --since 5m --limit 1 \
 
 Print a final summary. If anything is `✗`, name the likely cause (auth filter dropping requests, sampling, redaction stripping `http.route`, API key wrong, network egress blocked) and stop. Don't claim success when assertions fail.
 
-**No app code yet?** Smoke-test the pipeline alone with `telemetrygen`:
+**No app code yet?** Smoke-test the pipeline alone with the CLI's built-in `telemetrygen` (the OTLP endpoint is derived from the configured API URL / `MONOSCOPE_API_URL`):
 
 ```bash
-go install github.com/open-telemetry/opentelemetry-collector-contrib/cmd/telemetrygen@latest
-telemetrygen traces --otlp-endpoint otelcol.monoscope.tech:4317 \
-  --otlp-header "x-api-key=YOUR_API_KEY" --duration 5s
+monoscope telemetrygen --kind trace --rate 5 --count 25 --service smoke-test
 monoscope traces search '' --since 2m --limit 5
 ```
 

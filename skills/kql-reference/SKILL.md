@@ -282,7 +282,7 @@ monoscope logs search 'level == "ERROR" | summarize count() by resource.service.
 # Schema discovery — the CLI exposes --search/--limit so agents don't load the
 # full schema (~600 fields) into context unnecessarily.
 monoscope schema --search service --limit 20
-monoscope schema -o json | jq '.fields | keys[]'
+monoscope schema --json | jq '.fields | keys[]'
 
 # Value discovery — what services/levels/methods *actually exist*?
 # Faster than running summarize: facets are precomputed per project.
