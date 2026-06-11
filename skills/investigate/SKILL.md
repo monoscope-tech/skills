@@ -180,18 +180,22 @@ monoscope logs tail --grep "connection refused"
 
 ### 6. Check metrics
 
+The expression is the same KQL dialect as search (see kql-reference) — a
+filter piped into `summarize`. A summarize **without** a `by` clause returns a
+single scalar, which is what `--assert` evaluates:
+
 ```bash
-# Error rate in the last hour
-monoscope metrics query "error_rate" --since 1h
+# Error count in the last hour (scalar)
+monoscope metrics query 'severity.text == "ERROR" | summarize count()' --since 1h
 
-# Latency by service
-monoscope metrics query "avg(http.server.duration) by resource.service.name" --since 1h
+# p99 latency by service
+monoscope metrics query '| summarize percentile(duration, 99) by resource.service.name' --since 1h
 
-# Check against an SLO threshold
-monoscope metrics query "error_rate" --since 30m --assert "< 0.01"
+# SLO gate — exits non-zero when the assertion fails (use in CI / runbooks)
+monoscope metrics query 'severity.text == "ERROR" | summarize count()' --since 30m --assert "< 100"
 
-# Sparkline chart of request rate
-monoscope metrics chart "request_rate" --since 2h
+# Sparkline chart of request volume over time
+monoscope metrics chart '| summarize count() by bin_auto(timestamp)' --since 2h
 ```
 
 ### 7. Check for related issues
@@ -224,6 +228,17 @@ Server-side validation errors (KQL parse errors, bad params) are surfaced
 verbatim from the response body — including line/column markers — so a 400
 will tell you what to fix.
 
+### 9. Share the smoking gun
+
+When you've identified the key event, mint a 48h share link so a teammate can
+open it without an account — include it in your summary:
+
+```bash
+TS=$(monoscope events get "$ID" | jq -r '.events[0].timestamp')
+monoscope share-link create --event-id "$ID" --created-at "$TS" --type span
+# → {id, url} — the url is publicly viewable for 48 hours
+```
+
 ## Output
 
 After investigation, produce a structured summary:
@@ -233,6 +248,8 @@ After investigation, produce a structured summary:
 3. **Metrics state** — error rate, latency, any SLO breaches
 4. **Likely cause** — hypothesis based on evidence
 5. **Recommended action** — fix, escalate, or monitor
+6. **Share link** — a `share-link create` URL for the key event, so humans can
+   verify the evidence in one click
 
 ## Guidelines
 

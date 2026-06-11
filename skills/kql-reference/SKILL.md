@@ -255,6 +255,22 @@ kind == "span" AND parent_id == null
 - **`has` is for word search**, `contains` is for substring. `has "error"` won't match `"errors"` but `contains "error"` will.
 - **Duration fields** (`duration`) compare in nanoseconds but accept human-readable suffixes (`1s`, `200ms`).
 
+## Metrics queries
+
+`monoscope metrics query EXPRESSION` and `metrics chart EXPRESSION` accept
+**this same KQL dialect** — a filter piped into `summarize`. There is no
+separate metrics language and no predefined metric names like `error_rate`.
+
+- `summarize` with **no** `by` clause → a single scalar; this is the shape
+  `--assert` evaluates (`--assert "> 0"`, exit code gates CI).
+- `summarize ... by bin_auto(timestamp)` → a timeseries (what `chart` plots).
+- `summarize ... by <field>` → a per-category distribution.
+
+```bash
+monoscope metrics query 'severity.text == "ERROR" | summarize count()' --since 1h --assert "< 100"
+monoscope metrics chart '| summarize count() by bin_auto(timestamp)' --since 2h
+```
+
 ## CLI usage
 
 The `monoscope` CLI accepts KQL as the positional `QUERY` argument and adds

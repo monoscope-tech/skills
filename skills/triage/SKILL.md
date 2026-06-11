@@ -169,6 +169,20 @@ monoscope issues bulk acknowledge --ids "$IDS"
 `--debug` (or `MONOSCOPE_DEBUG=1`) prints the outgoing request URL — use it when
 the result of a bulk action is surprising.
 
+### 6. Mark mitigations on the timeline
+
+`send-event` writes a real event into the project — use it to annotate what
+you actioned, so the incident timeline shows the mitigation next to the
+symptoms:
+
+```bash
+monoscope send-event -m "muted checkout-api error monitor for 30m, deploying fix" \
+  --service on-call -t incident:inc-2026-0611
+```
+
+To **create or modify** monitors (not just mute/resolve them), use the
+`manage` skill — monitors-as-code with `monitors apply`.
+
 ## Output
 
 After triage, produce a structured summary:
