@@ -141,11 +141,21 @@ monoscope events get "$ID"
 If you have a trace ID or event ID from a log entry:
 
 ```bash
-# Get the full trace tree (spans in hierarchy)
+# Every span of the trace. Piped (as here) this is JSON; on a terminal it draws
+# a waterfall — one row per span, indented by depth, bar sized by duration.
 monoscope traces get <trace-id> --tree
 
 # Get a single event
 monoscope events get <event-id>
+```
+
+To find the slow span programmatically, sort the spans by duration rather than
+reading the waterfall:
+
+```bash
+monoscope traces get <trace-id> --tree \
+  | jq -r '.events[] | [.duration, .service, .span_name] | @tsv' \
+  | sort -rn | head -5
 ```
 
 ### 4. Get temporal context
@@ -168,15 +178,25 @@ monoscope events context --at 2026-04-15T10:34:22Z --window 10m --summary \
 ### 5. Live tail (if the issue is ongoing)
 
 ```bash
-# Stream all events for a service
+# Follow a service
 monoscope logs tail --service payment-api
 
-# Filter to errors only
+# Errors only
 monoscope logs tail --service payment-api --level error
 
-# Client-side pattern filter
+# Substring filter over message, span name and service
 monoscope logs tail --grep "connection refused"
+
+# Show the last 15 minutes first, then follow — the usual incident opener
+monoscope logs tail --service payment-api --since 15m
+
+# key=value output, easy to grep or feed to another tool
+monoscope logs tail --format logfmt
 ```
+
+`tail` never terminates. When running it from a tool call, always bound it —
+`timeout 60 monoscope logs tail ...` — or you will hang the session. For a
+one-shot look at recent activity prefer `logs search --since 5m`.
 
 ### 6. Check metrics
 
@@ -194,9 +214,35 @@ monoscope metrics query '| summarize percentile(duration, 99) by resource.servic
 # SLO gate — exits non-zero when the assertion fails (use in CI / runbooks)
 monoscope metrics query 'severity.text == "ERROR" | summarize count()' --since 30m --assert "< 100"
 
-# Sparkline chart of request volume over time
-monoscope metrics chart '| summarize count() by bin_auto(timestamp)' --since 2h
+# Draw it. On a terminal this is a real chart (braille line plot with axes);
+# piped, it is the underlying JSON.
+monoscope chart '| summarize count() by bin_auto(timestamp)' --since 2h
 ```
+
+### 6b. Read a dashboard
+
+A project's dashboards already encode what its owners consider worth watching,
+which is usually a better starting point than inventing queries:
+
+```bash
+# What dashboards exist
+monoscope dashboards list | jq -r '.data[] | [.id, .title] | @tsv'
+
+# Every widget's resolved data in one request — no per-widget round trips.
+# Widgets carry: title, w_type, unit, headers, rows (numeric), text_rows,
+# stats {min,max,mean,sum,count}, value (stats widgets) and error.
+monoscope dashboards render <dashboard-id> --since 6h \
+  | jq -r '.widgets[] | select(.stats) | [.title, .stats.max, .stats.mean] | @tsv'
+
+# Anything broken or empty on the dashboard is worth saying out loud
+monoscope dashboards render <dashboard-id> --json \
+  | jq -r '.widgets[] | select(.error) | "\(.title): \(.error)"'
+
+# One widget, a different window, with a dashboard variable bound
+monoscope dashboards render <id> --widget p95-latency --since 24h --var service=checkout
+```
+
+Use `--tab <slug>` for multi-tab dashboards; `.tabs` in the JSON lists them.
 
 ### 7. Check for related issues
 

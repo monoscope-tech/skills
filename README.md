@@ -136,6 +136,13 @@ so a regression breaks CI rather than the skill in production.
 | `auth status` (piped or `--json`) | `{authenticated, method, api_url, project}` |
 | `facets [FIELD]` | `{<field_path>: [{value, count}, ...]}` |
 | `events context --summary` | base envelope plus `traces: [{trace_id, services, span_count, error_count}, ...]` |
+| `dashboards render <id>` | `{title, tab, tabs, since, from, to, widgets: [{title, w_type, unit, layout, headers, rows, text_rows, stats, value, error, children}]}` — every widget's query already run server-side |
+| `chart <kql>` | same envelope as `metrics query`: `{headers, dataset, data_text, data_float, stats, from, to, error}` |
+
+Commands that draw (`chart`, `dashboards render`, `traces get --tree`,
+`logs search`/`tail`) print a terminal rendering only when stdout is a TTY;
+piped or under `--json` they emit the envelope above, so an agent can use the
+same command a human would.
 
 ## Links
 

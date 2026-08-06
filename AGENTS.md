@@ -14,7 +14,7 @@ Full reference for Monoscope's KQL dialect — operators, aggregations, time bin
 
 ### `investigate`
 
-Use when debugging a production incident, searching logs, inspecting traces, or checking metrics. Teaches the agent to orient with `services list`, search with `logs search` / `traces get --tree`, monitor live with `events tail`, and check SLOs with `metrics query --assert`.
+Use when debugging a production incident, searching logs, inspecting traces, or checking metrics. Teaches the agent to orient with `services list`, search with `logs search`, read a trace with `traces get --tree` (a waterfall on a terminal, span JSON when piped), pull a whole dashboard's resolved data with `dashboards render`, follow live output with `logs tail`, plot with `chart`, and check SLOs with `metrics query --assert`.
 
 **Triggers:** "investigate the error in...", "look into why...", "find logs for...", "what happened at...", "check the error rate for..."
 
@@ -28,7 +28,9 @@ Use for on-call sweeps: reviewing open issues, silencing noisy log patterns, mut
 
 Create and manage alert monitors and dashboards as code: write monitor/dashboard YAML, apply it idempotently (`monitors apply` keys on title, `dashboards apply` on file_path), and round-trip live resources through `yaml` dumps. Use for "alert me when...", dashboard creation, widget edits, and GitOps observability config.
 
-**Triggers:** "alert me when...", "create a monitor for...", "make a dashboard...", "add a widget...", "apply our monitors from CI"
+Also covers verifying a dashboard after an apply: `dashboards render` runs every widget's query and reports which ones error or come back empty.
+
+**Triggers:** "alert me when...", "create a monitor for...", "make a dashboard...", "add a widget...", "apply our monitors from CI", "show me the dashboard"
 
 ### `instrument`
 

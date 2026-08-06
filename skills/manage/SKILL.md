@@ -83,6 +83,24 @@ monoscope dashboards delete <id>
 The dashboard `schema` (widgets, layout) is large — prefer round-tripping the
 `yaml` dump over writing it from scratch. Each widget's `query` is KQL.
 
+**Verify a dashboard by rendering it, not by re-reading the YAML.**
+`dashboards render` runs every widget's query server-side and returns the
+results, which is the only way to find out that a widget you just wrote returns
+nothing or fails:
+
+```bash
+# Anything broken after an apply
+monoscope dashboards render <id> --since 1h \
+  | jq -r '.widgets[] | select(.error) | "BROKEN \(.title): \(.error)"'
+
+# Anything silently empty (query is valid but matches nothing)
+monoscope dashboards render <id> --since 1h \
+  | jq -r '.widgets[] | select((.rows | length) == 0 and (.text_rows | length) == 0) | .title'
+
+# On a terminal, the same command draws the dashboard — useful to eyeball layout
+monoscope dashboards render <id> --since 6h
+```
+
 ## Guidelines
 
 - Always set an explicit natural key: `title` for monitors, `file_path` for

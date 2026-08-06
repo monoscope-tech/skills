@@ -268,8 +268,17 @@ separate metrics language and no predefined metric names like `error_rate`.
 
 ```bash
 monoscope metrics query 'severity.text == "ERROR" | summarize count()' --since 1h --assert "< 100"
-monoscope metrics chart '| summarize count() by bin_auto(timestamp)' --since 2h
+
+# `chart` draws the result. On a terminal that is a real plot; piped, it is the
+# same JSON `metrics query` returns, so it is safe to use either way.
+monoscope chart '| summarize count() by bin_auto(timestamp)' --since 2h
+monoscope chart '| summarize count() by resource.service.name' --type bar
+monoscope chart '| summarize p95(duration)' --type stat --since 24h
 ```
+
+The shape of the result decides the chart: a leading `bin_auto(timestamp)`
+column plots as a line, `by <field>` as bars, a bare `summarize` as a single
+number. `--type line|bar|stat|table` overrides the guess.
 
 ## CLI usage
 
