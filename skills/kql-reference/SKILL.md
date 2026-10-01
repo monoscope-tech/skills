@@ -108,6 +108,10 @@ Pipe a filter into a `summarize` clause for aggregation:
 | `stdev(field)` | Standard deviation |
 | `percentile(field, N)` | Nth percentile (e.g., p99 = `percentile(duration, 99)`) |
 | `percentiles(field, p1, p2, ...)` | Multiple percentiles at once |
+| `range(field)` | max − min (gauges only, never counters) |
+| `rate(value)` | Counter increase per second, per series (`metrics` only) |
+| `increase(value)` | Counter increase per bin, per series (`metrics` only) |
+| `last(value)` | Newest value per bin, per series (`metrics` only) |
 
 ### Examples
 
@@ -265,6 +269,43 @@ separate metrics language and no predefined metric names like `error_rate`.
   `--assert` evaluates (`--assert "> 0"`, exit code gates CI).
 - `summarize ... by bin_auto(timestamp)` → a timeseries (what `chart` plots).
 - `summarize ... by <field>` → a per-category distribution.
+- `by bin_auto(timestamp), a, b` → one series per (a, b) combination, labelled `a / b`.
+
+### Counters and gauges on the `metrics` source
+
+Raw OpenTelemetry/Prometheus metrics live in the `metrics` source (start the
+query with `metrics |`, or pass `--source metrics`). Every point belongs to a
+**series**: a metric name plus one exact set of attributes (`series_id`).
+
+| Metric kind | Use | Never |
+|---|---|---|
+| Counter (cumulative or delta: `*_total`, requests, bytes sent, rows ingested) | `rate(value)` per second, `rate(value) * 60` per minute, `increase(value)` per bin | `sum(value)`, `range(value)`, `avg(value)` |
+| Gauge (memory in use, queue depth, connections, buffer size) | `last(value)` (current level), `avg(value)`, `max(value)` | `rate()`, `increase()` |
+
+`rate()`/`increase()` take each series' increase from its previous point (also
+from before the time range, so a bin with one point is still right), treat a
+drop as a counter reset (restart), and add the series together per `by` group.
+`range(value)` per bin is 0 when a bin holds one point and wrong across a
+restart. `last()` sums the newest point of each series in the group; group `by`
+the series' attributes to see one line per series.
+
+```bash
+# Rows ingested per second
+monoscope chart 'metrics | where metric_name == "timefusion.mem_buffer.rows_ingested_total" | summarize rate(value) by bin_auto(timestamp)' --source metrics
+# Two counters as two lines
+monoscope chart 'metrics | where metric_name in ("timefusion.mem_buffer.rows_ingested_total", "timefusion.mem_buffer.rows_flushed_total") | summarize rate(value) by bin_auto(timestamp), metric_name' --source metrics
+# One line per (project, table)
+monoscope chart 'metrics | where metric_name == "timefusion.ingest.rows" | summarize rate(value) by bin_auto(timestamp), attributes.project_id, attributes.table_name' --source metrics
+# Total increase over the window (scalar, works with --assert)
+monoscope metrics query 'metrics | where metric_name == "jobs.failed" | summarize increase(value)' --since 1h --assert "< 10"
+# A gauge's current value
+monoscope chart 'metrics | where metric_name == "timefusion.mem_buffer.estimated_bytes" | summarize last(value) by bin_auto(timestamp)' --source metrics
+```
+
+Dashboard `timeseries_stat` tiles reduce the bins to one number with
+`summarize_by`: `sum` for `increase()`, `mean`/`max` for `rate()`, `last` for
+`last()` gauges. Do not combine `rate()` with `summarize_by: rate` (it divides
+by the window again).
 
 ```bash
 monoscope metrics query 'severity.text == "ERROR" | summarize count()' --since 1h --assert "< 100"

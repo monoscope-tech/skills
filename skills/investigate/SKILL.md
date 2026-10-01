@@ -217,7 +217,14 @@ monoscope metrics query 'severity.text == "ERROR" | summarize count()' --since 3
 # Draw it. On a terminal this is a real chart (braille line plot with axes);
 # piped, it is the underlying JSON.
 monoscope chart '| summarize count() by bin_auto(timestamp)' --since 2h
+
+# OTel/Prometheus metrics: counters as a per-second rate, gauges as their newest value
+monoscope chart 'metrics | where metric_name == "http.server.requests" | summarize rate(value) by bin_auto(timestamp), resource.service.name' --source metrics --since 2h
+monoscope chart 'metrics | where metric_name == "process.memory.usage" | summarize last(value) by bin_auto(timestamp)' --source metrics
 ```
+
+For counters use `rate(value)`/`increase(value)` — never `sum(value)` or
+`range(value)`, which read running totals (see kql-reference).
 
 ### 6b. Read a dashboard
 
