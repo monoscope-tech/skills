@@ -112,6 +112,7 @@ Pipe a filter into a `summarize` clause for aggregation:
 | `rate(value)` | Counter increase per second, per series (`metrics` only) |
 | `increase(value)` | Counter increase per bin, per series (`metrics` only) |
 | `last(value)` | Newest value per bin, per series (`metrics` only) |
+| `rateif(value, pred)`, `increaseif(value, pred)`, `lastif(value, pred)` | The same, over only the series `pred` matches (`metrics` only) |
 
 ### Examples
 
@@ -301,6 +302,27 @@ monoscope metrics query 'metrics | where metric_name == "jobs.failed" | summariz
 # A gauge's current value
 monoscope chart 'metrics | where metric_name == "timefusion.mem_buffer.estimated_bytes" | summarize last(value) by bin_auto(timestamp)' --source metrics
 ```
+
+**Ratios.** `rateif(value, pred)`, `increaseif(value, pred)` and
+`lastif(value, pred)` add up only the series that `pred` matches. Each series
+still takes its increase from its own points, so two of them can divide each
+other. Write `pred` on series columns (`metric_name`, `attributes.*`,
+`resource.*`), never on `value` or `timestamp`, and keep the `where` wide enough
+to read every series the aggregates use. Divide in one expression, or name the
+aggregates and divide in an `extend` after the `summarize` (the computed column
+is the charted series). A division by 0 gives 0.
+
+```bash
+# Rollup hit rate in percent
+monoscope chart 'metrics | where metric_name in ("timefusion.rollup.hits", "timefusion.rollup.misses") | summarize hits = rateif(value, metric_name == "timefusion.rollup.hits"), total = rate(value) by bin_auto(timestamp) | extend hit_pct = 100.0 * hits / total' --source metrics
+# Memory peak as a percent of the limit (two gauges)
+monoscope chart 'metrics | where metric_name in ("timefusion.memory.charged_peak_bytes", "timefusion.memory.limit_bytes") | summarize 100.0 * lastif(value, metric_name == "timefusion.memory.charged_peak_bytes") / lastif(value, metric_name == "timefusion.memory.limit_bytes") by bin_auto(timestamp)' --source metrics
+# Share of one attribute value
+monoscope chart 'metrics | where metric_name == "timefusion.rollup.hits" | summarize 100.0 * rateif(value, attributes.mode == "hybrid") / rate(value) by bin_auto(timestamp)' --source metrics
+```
+
+A monitor alerts on the largest of all aggregates, so write a ratio monitor as
+the only aggregate (the one-expression form).
 
 Dashboard `timeseries_stat` tiles reduce the bins to one number with
 `summarize_by`: `sum` for `increase()`, `mean`/`max` for `rate()`, `last` for
