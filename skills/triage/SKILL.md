@@ -20,8 +20,10 @@ export MONOSCOPE_API_URL=http://localhost:8080
 Verify with: `monoscope auth status` (when piped or run with `--json` this returns
 `{authenticated, method, api_url, project}` JSON).
 
-All list commands return a uniform envelope — `{data: [...], pagination: {has_more, total, cursor, page, per_page}}`.
-Use `.data[]` in jq pipelines.
+Resource list commands return a uniform envelope — `{data: [...], pagination: {has_more, total, cursor, page, per_page}}`.
+Use `.data[]` in jq pipelines. Check `.pagination.has_more` before treating a
+page as the full queue; issues, endpoints, and log patterns accept `--page` and
+`--per-page`. A bulk action affects only the IDs supplied.
 
 ### Output envelopes (memorise these)
 
@@ -85,7 +87,7 @@ Log patterns are automatically extracted recurring patterns in your logs. Noisy 
 
 ```bash
 # List patterns (most frequent first) — same {data, pagination} envelope
-monoscope log-patterns list --per-page 50 | jq '.data[] | {id, frequency: .occurrence_count, sample: .pattern}'
+monoscope log-patterns list --per-page 50 | jq '.data[] | {id, frequency: .occurrence_count, service: .service_name, level: .log_level}'
 
 # Inspect a specific pattern
 monoscope log-patterns get <pattern-id>
@@ -152,9 +154,8 @@ monoscope endpoints get <endpoint-id>
 
 ### 5. Verify before mutating in bulk
 
-Bulk operations are irreversible. When closing out lots of issues at once,
-verify the IDs first by piping through `jq` — and prefer `--first`/`--id-only`
-on `events search` when chaining lookups:
+Before changing lots of issues at once, verify the IDs by piping through `jq`.
+Prefer `--first`/`--id-only` on `events search` when chaining lookups:
 
 ```bash
 # Preview what you're about to acknowledge
