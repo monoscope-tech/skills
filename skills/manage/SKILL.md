@@ -17,7 +17,8 @@ monoscope <resource> apply thing.yaml         # upsert (idempotent)
 
 `apply` accepts a file or a directory of `.yaml`/`.yml`/`.json` files and is
 **idempotent**: monitors upsert by `title`, dashboards by `file_path`.
-Re-applying an unchanged dump is a no-op — safe to run from CI on every push.
+Re-applying updates the same resource; it can change update timestamps even
+when the configuration is unchanged.
 
 ## Prerequisites
 
@@ -104,7 +105,8 @@ monoscope dashboards render <id> --since 6h
 ## Guidelines
 
 - Always set an explicit natural key: `title` for monitors, `file_path` for
-  dashboards. Files without one create a new resource on each apply.
+  dashboards. Changing the key creates a separate resource; keep it stable
+  across edits.
 - Keep the YAML files in the user's repo (e.g. `observability/monitors/`) and
   apply from CI — that's the point of the as-code flow.
 - Before creating a monitor, sanity-check the query returns data:

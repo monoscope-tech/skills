@@ -26,7 +26,7 @@ so invocations from this skill already get JSON. Force a format with the global
 
 ## The full pipeline (TL;DR)
 
-Every CLI command emits a stable JSON envelope, so you can chain discovery →
+Search and resource commands emit stable JSON envelopes, so you can chain discovery →
 search → triage without manual munging. Follow this shape unless the user's
 question requires a different ordering:
 
@@ -45,7 +45,7 @@ ID=$(monoscope logs search 'severity.text=="error"' \
 # 3. Context. Pull the surrounding window with --summary for a per-trace
 #    breakdown — answers "which other services were affected at the same time?".
 monoscope events context --window 5m --summary \
-  --at "$(monoscope events get "$ID" | jq -r .timestamp)" \
+  --at "$(monoscope events get "$ID" | jq -r '.events[0].timestamp')" \
   | jq '.traces | sort_by(-.error_count) | .[0:3]'
 
 # 4. Triage. Acknowledge open issues you've now formed a hypothesis about.
@@ -59,12 +59,12 @@ monoscope issues list --service "$SVC" --status open \
 | Command | Shape |
 |---|---|
 | `facets [FIELD]` | `{<field_path>: [{value, count}, ...]}` |
-| `events search` (and `logs`/`traces`) | `{events: [...], count, has_more, cursor}` |
+| `events search`, `events get` (and `logs`/`traces`) | `{events: [...], count, has_more, cursor}` |
 | `events context --summary` | `{events, count, traces: [{trace_id, services, span_count, error_count}]}` |
 | `issues list`, `monitors list`, ... | `{data: [...], pagination: {has_more, total, cursor, page, per_page}}` |
 | `auth status` (piped or `--json`) | `{authenticated, method, api_url, project}` |
 
-Use `.events[]` for event-shaped responses and `.data[]` for everything else —
+Use `.events[]` for event-shaped responses and `.data[]` for resource lists —
 **not** `.items[]` (legacy shape; the CLI normalises it to `.data`).
 
 ## Instructions
@@ -101,6 +101,8 @@ checks will actually match data. If `severity.text` only ever has `"INFO"`
 and `"ERROR"` in this project, don't waste a query on `=="DEBUG"`.
 
 ### 2. Search logs
+
+Use a positive `--limit`; zero and negative values are rejected.
 
 Use KQL queries. The query argument is positional. KQL uses `==`/`!=` (not
 Lucene `:`); `--service` and `--level` are shorthands that expand to
@@ -163,7 +165,7 @@ monoscope traces get <trace-id> --tree \
 Understand what was happening around a specific moment:
 
 ```bash
-# All events within 5 minutes of a timestamp
+# Five-minute window centered on the timestamp (2m30s on either side)
 monoscope events context --at 2026-04-15T10:34:22Z --service checkout-api --window 5m
 
 # Wider window across all services
@@ -202,7 +204,8 @@ one-shot look at recent activity prefer `logs search --since 5m`.
 
 The expression is the same KQL dialect as search (see kql-reference) — a
 filter piped into `summarize`. A summarize **without** a `by` clause returns a
-single scalar, which is what `--assert` evaluates:
+single scalar, which is what `--assert` evaluates. Grouped or empty results
+cannot establish that a threshold passed; use an ungrouped scalar for CI gates:
 
 ```bash
 # Error count in the last hour (scalar)
