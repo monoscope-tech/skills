@@ -1,6 +1,8 @@
 # monoscope-skills
 
-Claude Code skills for the [Monoscope](https://monoscope.tech) observability platform. Gives Claude the knowledge to use the `monoscope` CLI to investigate production incidents, triage issues and alerts, write KQL queries, and manage your observability resources.
+Agent skills for the [Monoscope](https://monoscope.tech) observability platform. They teach a coding agent to use the `monoscope` CLI to investigate production incidents, triage issues and alerts, write KQL queries, manage monitors and dashboards, and instrument apps with OpenTelemetry.
+
+The skills follow the open [Agent Skills](https://agentskills.io) format (`skills/<name>/SKILL.md`), so the same files work in Claude Code, Codex, Gemini CLI, Pi, Cursor, OpenCode, and any other agent that reads `SKILL.md`.
 
 ## Installation
 
@@ -11,26 +13,50 @@ claude plugin marketplace add monoscope-tech/skills
 claude plugin install monoscope-skills@monoscope-skills
 ```
 
-Restart Claude Code after installation. Skills activate automatically when relevant.
+Restart Claude Code. Update with `claude plugin marketplace update && claude plugin update monoscope-skills@monoscope-skills`, or use `/plugin`.
 
-**Update:**
+### Codex
 
 ```bash
-claude plugin marketplace update
-claude plugin update monoscope-skills@monoscope-skills
+codex plugin marketplace add monoscope-tech/skills
+codex plugin add monoscope-skills@monoscope-skills
 ```
 
-Or run `/plugin` to open the plugin manager.
+Requires Codex CLI v0.122+ (older releases: `codex marketplace add`). You can also run `/plugins` in Codex to browse and install. Invoke a skill explicitly with `$investigate`, `$triage`, etc.
 
-### Skills Package (skills.sh)
+### Gemini CLI
 
-For agents supporting the [skills.sh](https://skills.sh) ecosystem:
+```bash
+gemini extensions install https://github.com/monoscope-tech/skills
+```
+
+The extension bundles all five skills (check with `gemini skills list`). Update with `gemini extensions update monoscope-skills`.
+
+### Pi
+
+```bash
+pi install git:github.com/monoscope-tech/skills
+```
+
+Pi auto-discovers the `skills/` directory. Use `/skill:investigate` etc. to invoke one explicitly.
+
+### Cursor, OpenCode, Cline, Copilot, and others (skills.sh)
 
 ```bash
 npx skills add monoscope-tech/skills
 ```
 
-Works with Claude Code, Cursor, Cline, GitHub Copilot, and other compatible agents.
+### Manual (any agent)
+
+Copy or symlink the skill folders into a skills directory your agent reads. `~/.agents/skills/` (user) and `.agents/skills/` (repo) are read by Codex, Gemini CLI, and Pi:
+
+```bash
+git clone https://github.com/monoscope-tech/skills ~/.monoscope-skills
+mkdir -p ~/.agents/skills
+ln -s ~/.monoscope-skills/skills/* ~/.agents/skills/
+```
+
+For Claude Code use `~/.claude/skills/` instead. Run `git -C ~/.monoscope-skills pull` to update.
 
 ## Prerequisites
 
@@ -65,7 +91,7 @@ Consult this whenever writing, reading, or debugging a KQL query.
 
 ### `investigate`
 
-Investigate production incidents using the `monoscope` CLI. Walks Claude through discovering active services, searching logs and traces, inspecting trace trees, watching live events, and checking metrics against SLO thresholds.
+Investigate production incidents using the `monoscope` CLI. Walks the agent through discovering active services, searching logs and traces, inspecting trace trees, watching live events, and checking metrics against SLO thresholds.
 
 **Example prompts:**
 - "Investigate the 500 errors in the payment service over the last hour"
@@ -143,6 +169,10 @@ Commands that draw (`chart`, `dashboards render`, `traces get --tree`,
 `logs search`/`tail`) print a terminal rendering only when stdout is a TTY;
 piped or under `--json` they emit the envelope above, so an agent can use the
 same command a human would.
+
+## Releasing
+
+Codex and Gemini cache installs by version, so after changing a skill bump `version` in `.codex-plugin/plugin.json`, `.agents/plugins/marketplace.json`, and `gemini-extension.json` together. Otherwise `update` will not deliver the change.
 
 ## Links
 

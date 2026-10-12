@@ -1,6 +1,6 @@
 # Monoscope Skills
 
-This plugin provides agent skills for working with the Monoscope observability platform via the `monoscope` CLI.
+This repo provides agent skills (Agent Skills `SKILL.md` format, packaged for Claude Code, Codex, Gemini CLI, and Pi — see README for install) for working with the Monoscope observability platform via the `monoscope` CLI.
 
 ## Available Skills
 

@@ -1,0 +1,14 @@
+{
+  "name": "monoscope-skills",
+  "interface": { "displayName": "Monoscope" },
+  "plugins": [
+    {
+      "name": "monoscope-skills",
+      "version": "0.1.0",
+      "description": "Monoscope observability skills: investigate incidents, triage issues and alerts, write KQL, manage monitors and dashboards as code, and instrument apps with OpenTelemetry",
+      "source": { "source": "local", "path": "./" },
+      "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
+      "category": "Productivity"
+    }
+  ]
+}

@@ -81,7 +81,7 @@ Read the manifest, pick the framework, then map to the canonical doc URL:
 
 ## Step 2 — Apply the canonical guide
 
-`WebFetch` the URL above. Extract: install command, middleware/wrapper code, env-var block. Apply them to the user's entry file. If WebFetch fails (offline, redirect), fall back to these universal env vars and the OTel auto-instrumentation path for the language:
+Fetch the URL above (your web-fetch tool, or `curl -sL`). Extract: install command, middleware/wrapper code, env-var block. Apply them to the user's entry file. If the fetch fails (offline, redirect), fall back to these universal env vars and the OTel auto-instrumentation path for the language:
 
 ```bash
 OTEL_EXPORTER_OTLP_ENDPOINT="http://otelcol.monoscope.tech:4317"

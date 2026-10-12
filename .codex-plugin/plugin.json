@@ -1,0 +1,21 @@
+{
+  "name": "monoscope-skills",
+  "version": "0.1.0",
+  "description": "Monoscope observability skills: investigate incidents, triage issues and alerts, write KQL, manage monitors and dashboards as code, and instrument apps with OpenTelemetry",
+  "author": { "name": "Monoscope", "email": "hello@monoscope.tech", "url": "https://monoscope.tech" },
+  "homepage": "https://monoscope.tech",
+  "repository": "https://github.com/monoscope-tech/skills",
+  "license": "Apache-2.0",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Monoscope",
+    "shortDescription": "Investigate, triage, and manage observability with the monoscope CLI.",
+    "developerName": "Monoscope",
+    "category": "Productivity",
+    "capabilities": ["Interactive", "Read", "Write"],
+    "defaultPrompt": [
+      "Investigate the errors in my service over the last hour",
+      "Instrument this app with OpenTelemetry and send data to Monoscope"
+    ]
+  }
+}
