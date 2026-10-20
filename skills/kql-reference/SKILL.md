@@ -26,12 +26,15 @@ attributes.http.request.method !in ("GET", "HEAD")
 
 ### Text search
 ```
-has       — case-insensitive whole-word match
+has       — case-insensitive substring match (same as contains)
 !has      — negated
 has_any   — matches any word from a list
 has_all   — matches all words from a list
 ```
 ```
+"deadlock"          — free text: body, status_message or name contains it
+"deadlock" "retry"  — adjacent quoted terms are ANDed
+"lock wait timeout" — a sequence; any punctuation between the words
 body has "timeout"
 attributes.exception.message has_any ["timeout", "connection", "network"]
 ```
@@ -257,7 +260,8 @@ kind == "span" AND parent_id == null
 
 - **Do not invent field names.** Only use fields from the schema. Use `monoscope schema` to discover available fields.
 - **Do not filter by timestamp in KQL.** Time range is controlled separately via `--since`, `--from`, `--to` flags on the CLI, or the time picker in the UI.
-- **`has` is for word search**, `contains` is for substring. `has "error"` won't match `"errors"` but `contains "error"` will.
+- **`has` and `contains` both match substrings**, case-insensitively: `has "error"` matches `"errors"`.
+- **Free text is a quoted string on its own** (`"deadlock"`): it searches `body`, `status_message` and `name`. Adjacent quoted terms are ANDed, and a multi-word string (`"hello world"`) also matches `hello-world`. An unquoted word is a field name. Span errors such as database deadlocks are in `status_message`, so `body has` alone misses them.
 - **Duration fields** (`duration`) compare in nanoseconds but accept human-readable suffixes (`1s`, `200ms`).
 
 ## Metrics queries
