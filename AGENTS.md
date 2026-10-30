@@ -65,6 +65,6 @@ monoscope config set project <your-project-uuid>
 ## Installing the CLI
 
 ```bash
-curl monoscope.tech/install.sh | sh
+curl https://monoscopehq.com/install.sh | sh
 monoscope auth login
 ```
