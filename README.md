@@ -37,7 +37,7 @@ Works with Claude Code, Cursor, Cline, GitHub Copilot, and other compatible agen
 Install the `monoscope` CLI and authenticate:
 
 ```bash
-curl monoscope.tech/install.sh | sh
+curl https://monoscopehq.com/install.sh | sh
 monoscope auth login
 ```
 
