@@ -43,7 +43,7 @@ Mark each todo complete as it finishes — never batch. If a surface genuinely d
 
 ## Prerequisites
 
-Monoscope account, project created, API key copied from **API Keys** in the dashboard. The API key travels via `OTEL_RESOURCE_ATTRIBUTES="x-api-key=…"`, **not** an HTTP header. OTLP endpoint: `http://otelcol.monoscope.tech:4317` (gRPC) or `:4318` (HTTP/protobuf).
+Monoscope account, project created, API key copied from **API Keys** in the dashboard. The API key travels via `OTEL_RESOURCE_ATTRIBUTES="x-api-key=…"`, **not** an HTTP header. OTLP endpoint: `https://otel.monoscopehq.com` (port 443, gRPC or HTTP/protobuf).
 
 ## Step 1 — Detect the stack
 
@@ -55,39 +55,39 @@ Read the manifest, pick the framework, then map to the canonical doc URL:
 
 | Detection | Doc URL |
 |---|---|
-| `package.json` + `express` | https://monoscope.tech/docs/sdks/nodejs/expressjs |
-| `package.json` + `fastify` | https://monoscope.tech/docs/sdks/nodejs/fastifyjs |
-| `package.json` + `@nestjs/core` | https://monoscope.tech/docs/sdks/nodejs/nestjs |
-| `package.json` + `next` | https://monoscope.tech/docs/sdks/nodejs/nextjs |
-| `package.json` + `@adonisjs/core` | https://monoscope.tech/docs/sdks/nodejs/adonisjs |
-| `requirements.txt`/`pyproject.toml` + `fastapi` | https://monoscope.tech/docs/sdks/python/fastapi |
-| Python + `django` | https://monoscope.tech/docs/sdks/python/django |
-| Python + `flask` | https://monoscope.tech/docs/sdks/python/flask |
-| Python + `pyramid` | https://monoscope.tech/docs/sdks/python/pyramid |
-| `go.mod` + `gin-gonic/gin` | https://monoscope.tech/docs/sdks/golang/gin |
-| `go.mod` + `labstack/echo` | https://monoscope.tech/docs/sdks/golang/echo |
-| `go.mod` + `go-chi/chi` | https://monoscope.tech/docs/sdks/golang/chi |
-| `go.mod` + `gofiber/fiber` | https://monoscope.tech/docs/sdks/golang/fiber |
-| `go.mod` + `gorilla/mux` | https://monoscope.tech/docs/sdks/golang/gorillamux |
-| `go.mod` (plain `net/http`) | https://monoscope.tech/docs/sdks/golang/native |
-| `composer.json` + `laravel/framework` | https://monoscope.tech/docs/sdks/php/laravel |
-| `composer.json` + `slim/slim` | https://monoscope.tech/docs/sdks/php/slim |
-| `composer.json` + `symfony/framework-bundle` | https://monoscope.tech/docs/sdks/php/symfony |
-| `pom.xml`/`build.gradle` + Spring Boot | https://monoscope.tech/docs/sdks/java/springboot |
-| `*.csproj` + ASP.NET Core | https://monoscope.tech/docs/sdks/dotnet/dotnetcore |
-| `mix.exs` + Phoenix | https://monoscope.tech/docs/sdks/elixir/phoenix |
-| `pubspec.yaml` + `flutter:` SDK | https://monoscope.tech/docs/sdks/flutter |
-| anything else (Rust, Ruby, Scala, Swift, …) | https://monoscope.tech/docs/sdks/opentelemetry |
+| `package.json` + `express` | https://monoscopehq.com/docs/sdks/nodejs/expressjs |
+| `package.json` + `fastify` | https://monoscopehq.com/docs/sdks/nodejs/fastifyjs |
+| `package.json` + `@nestjs/core` | https://monoscopehq.com/docs/sdks/nodejs/nestjs |
+| `package.json` + `next` | https://monoscopehq.com/docs/sdks/nodejs/nextjs |
+| `package.json` + `@adonisjs/core` | https://monoscopehq.com/docs/sdks/nodejs/adonisjs |
+| `requirements.txt`/`pyproject.toml` + `fastapi` | https://monoscopehq.com/docs/sdks/python/fastapi |
+| Python + `django` | https://monoscopehq.com/docs/sdks/python/django |
+| Python + `flask` | https://monoscopehq.com/docs/sdks/python/flask |
+| Python + `pyramid` | https://monoscopehq.com/docs/sdks/python/pyramid |
+| `go.mod` + `gin-gonic/gin` | https://monoscopehq.com/docs/sdks/golang/gin |
+| `go.mod` + `labstack/echo` | https://monoscopehq.com/docs/sdks/golang/echo |
+| `go.mod` + `go-chi/chi` | https://monoscopehq.com/docs/sdks/golang/chi |
+| `go.mod` + `gofiber/fiber` | https://monoscopehq.com/docs/sdks/golang/fiber |
+| `go.mod` + `gorilla/mux` | https://monoscopehq.com/docs/sdks/golang/gorillamux |
+| `go.mod` (plain `net/http`) | https://monoscopehq.com/docs/sdks/golang/native |
+| `composer.json` + `laravel/framework` | https://monoscopehq.com/docs/sdks/php/laravel |
+| `composer.json` + `slim/slim` | https://monoscopehq.com/docs/sdks/php/slim |
+| `composer.json` + `symfony/framework-bundle` | https://monoscopehq.com/docs/sdks/php/symfony |
+| `pom.xml`/`build.gradle` + Spring Boot | https://monoscopehq.com/docs/sdks/java/springboot |
+| `*.csproj` + ASP.NET Core | https://monoscopehq.com/docs/sdks/dotnet/dotnetcore |
+| `mix.exs` + Phoenix | https://monoscopehq.com/docs/sdks/elixir/phoenix |
+| `pubspec.yaml` + `flutter:` SDK | https://monoscopehq.com/docs/sdks/flutter |
+| anything else (Rust, Ruby, Scala, Swift, …) | https://monoscopehq.com/docs/sdks/opentelemetry |
 
 ## Step 2 — Apply the canonical guide
 
-`WebFetch` the URL above. Extract: install command, middleware/wrapper code, env-var block. Apply them to the user's entry file. If WebFetch fails (offline, redirect), fall back to these universal env vars and the OTel auto-instrumentation path for the language:
+Fetch the URL above (your web-fetch tool, or `curl -sL`). Extract: install command, middleware/wrapper code, env-var block. Apply them to the user's entry file. If the fetch fails (offline, redirect), fall back to these universal env vars and the OTel auto-instrumentation path for the language:
 
 ```bash
-OTEL_EXPORTER_OTLP_ENDPOINT="http://otelcol.monoscope.tech:4317"
+OTEL_EXPORTER_OTLP_ENDPOINT="https://otel.monoscopehq.com"
 OTEL_SERVICE_NAME="my-service"
 OTEL_RESOURCE_ATTRIBUTES="x-api-key=YOUR_API_KEY"
-OTEL_EXPORTER_OTLP_PROTOCOL="grpc"   # use http/protobuf + :4318 for PHP
+OTEL_EXPORTER_OTLP_PROTOCOL="grpc"   # use http/protobuf for PHP (same endpoint)
 ```
 
 ## Step 3 — Cover the required surfaces (HTTP-out, SQL, queues, jobs)
@@ -178,7 +178,7 @@ Report exactly which expected spans are missing. If any are missing, **stop**; t
 
 ## Step 5 — Switch to remote
 
-Set `OTEL_EXPORTER_OTLP_ENDPOINT=http://otelcol.monoscope.tech:4317` and confirm `OTEL_RESOURCE_ATTRIBUTES` contains `x-api-key=…`. Restart the app. Re-trigger the same routes and jobs from Step 4c so we validate the same surface remotely.
+Set `OTEL_EXPORTER_OTLP_ENDPOINT=https://otel.monoscopehq.com` and confirm `OTEL_RESOURCE_ATTRIBUTES` contains `x-api-key=…`. Restart the app. Re-trigger the same routes and jobs from Step 4c so we validate the same surface remotely.
 
 ## Step 6 — Remote assertion via Monoscope CLI
 

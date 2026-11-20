@@ -1,6 +1,6 @@
 # Monoscope Skills
 
-This plugin provides agent skills for working with the Monoscope observability platform via the `monoscope` CLI.
+This repo provides agent skills (Agent Skills `SKILL.md` format, packaged for Claude Code, Codex, Gemini CLI, and Pi — see README for install) for working with the Monoscope observability platform via the `monoscope` CLI.
 
 ## Available Skills
 
@@ -39,7 +39,7 @@ Instrument an application with OpenTelemetry so traces, logs, and metrics flow i
 Native Monoscope SDKs (richer: request/response capture, error reporting, outgoing request monitoring) are available for: Express, Fastify, NestJS, FastAPI, Django, Gin, Echo, Chi, Fiber, Spring Boot, Laravel. Standard OTel auto-instrumentation is used for Ruby, Rust, .NET, Flask, and other languages.
 
 Key Monoscope-specific details this skill knows:
-- Endpoint: `http://otelcol.monoscope.tech:4317` (gRPC) or `:4318` (HTTP/protobuf)
+- Endpoint: `https://otel.monoscopehq.com` (port 443, gRPC or HTTP/protobuf)
 - Auth via `OTEL_RESOURCE_ATTRIBUTES="x-api-key={API_KEY}"` — not headers
 - Native SDK packages: `@monoscopetech/express`, `monoscope-fastapi`, `github.com/monoscope-tech/monoscope-go/gin`, `io.monoscope.springboot:monoscope-springboot`, `monoscope/laravel`
 - Redaction: JSONPath expressions for request/response body fields
@@ -65,6 +65,6 @@ monoscope config set project <your-project-uuid>
 ## Installing the CLI
 
 ```bash
-curl https://monoscopehq.com/install.sh | sh
+curl -fsSL https://monoscopehq.com/install.sh | sh
 monoscope auth login
 ```
