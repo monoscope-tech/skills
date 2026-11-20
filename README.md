@@ -1,6 +1,6 @@
 # monoscope-skills
 
-Agent skills for the [Monoscope](https://monoscope.tech) observability platform. They teach a coding agent to use the `monoscope` CLI to investigate production incidents, triage issues and alerts, write KQL queries, manage monitors and dashboards, and instrument apps with OpenTelemetry.
+Agent skills for the [Monoscope](https://monoscopehq.com) observability platform. They teach a coding agent to use the `monoscope` CLI to investigate production incidents, triage issues and alerts, write KQL queries, manage monitors and dashboards, and instrument apps with OpenTelemetry.
 
 The skills follow the open [Agent Skills](https://agentskills.io) format (`skills/<name>/SKILL.md`), so the same files work in Claude Code, Codex, Gemini CLI, Pi, Cursor, OpenCode, and any other agent that reads `SKILL.md`.
 
@@ -63,7 +63,7 @@ For Claude Code use `~/.claude/skills/` instead. Run `git -C ~/.monoscope-skills
 Install the `monoscope` CLI and authenticate:
 
 ```bash
-curl monoscope.tech/install.sh | sh
+curl -fsSL https://monoscopehq.com/install.sh | sh
 monoscope auth login
 ```
 
@@ -176,7 +176,7 @@ Codex and Gemini cache installs by version, so after changing a skill bump `vers
 
 ## Links
 
-- [Monoscope](https://monoscope.tech) — observability platform
+- [Monoscope](https://monoscopehq.com) — observability platform
 - [CLI reference](https://github.com/monoscope-tech/monoscope/blob/master/docs/cli.md) — full `monoscope` command reference
 - [monoscope-tech/monoscope](https://github.com/monoscope-tech/monoscope) — main repo
 
