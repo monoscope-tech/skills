@@ -43,7 +43,7 @@ Mark each todo complete as it finishes — never batch. If a surface genuinely d
 
 ## Prerequisites
 
-Monoscope account, project created, API key copied from **API Keys** in the dashboard. The API key travels via `OTEL_RESOURCE_ATTRIBUTES="x-api-key=…"`, **not** an HTTP header. OTLP endpoint: `https://otel.monoscope.tech` (port 443, gRPC or HTTP/protobuf).
+Monoscope account, project created, API key copied from **API Keys** in the dashboard. The API key travels via `OTEL_RESOURCE_ATTRIBUTES="x-api-key=…"`, **not** an HTTP header. OTLP endpoint: `https://otel.monoscopehq.com` (port 443, gRPC or HTTP/protobuf).
 
 ## Step 1 — Detect the stack
 
@@ -84,7 +84,7 @@ Read the manifest, pick the framework, then map to the canonical doc URL:
 Fetch the URL above (your web-fetch tool, or `curl -sL`). Extract: install command, middleware/wrapper code, env-var block. Apply them to the user's entry file. If the fetch fails (offline, redirect), fall back to these universal env vars and the OTel auto-instrumentation path for the language:
 
 ```bash
-OTEL_EXPORTER_OTLP_ENDPOINT="https://otel.monoscope.tech"
+OTEL_EXPORTER_OTLP_ENDPOINT="https://otel.monoscopehq.com"
 OTEL_SERVICE_NAME="my-service"
 OTEL_RESOURCE_ATTRIBUTES="x-api-key=YOUR_API_KEY"
 OTEL_EXPORTER_OTLP_PROTOCOL="grpc"   # use http/protobuf for PHP (same endpoint)
@@ -178,7 +178,7 @@ Report exactly which expected spans are missing. If any are missing, **stop**; t
 
 ## Step 5 — Switch to remote
 
-Set `OTEL_EXPORTER_OTLP_ENDPOINT=https://otel.monoscope.tech` and confirm `OTEL_RESOURCE_ATTRIBUTES` contains `x-api-key=…`. Restart the app. Re-trigger the same routes and jobs from Step 4c so we validate the same surface remotely.
+Set `OTEL_EXPORTER_OTLP_ENDPOINT=https://otel.monoscopehq.com` and confirm `OTEL_RESOURCE_ATTRIBUTES` contains `x-api-key=…`. Restart the app. Re-trigger the same routes and jobs from Step 4c so we validate the same surface remotely.
 
 ## Step 6 — Remote assertion via Monoscope CLI
 
